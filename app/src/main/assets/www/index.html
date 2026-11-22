@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Visite 360 betCVC</title>
+<style>
+:root{--bg:#0e1316;--panel:#171e23ee;--line:#2c3840;--txt:#e9eef0;--mut:#93a1a8;--acc:#35d0a5;--acc2:#ffb347;--bad:#ff6b5e}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;overscroll-behavior:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button{font:inherit;color:inherit;background:#232d34;border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer}
+button:active{background:#2f3c45}
+button.pri{background:var(--acc);border-color:var(--acc);color:#06261d;font-weight:650}
+button.warn{color:var(--bad)}
+button:disabled{opacity:.4}
+input[type=text],input[type=number]{font:inherit;color:inherit;background:#0f1519;border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
+input[type=range]{width:100%;accent-color:var(--acc)}
+#top{position:fixed;top:0;left:0;right:0;display:flex;gap:6px;padding:8px;align-items:center;background:linear-gradient(#000a,#0000);z-index:5}
+#top button{padding:7px 9px;font-size:13.5px;background:#171e23cc}
+#top button.on{background:var(--acc);border-color:var(--acc);color:#06261d;font-weight:650}
+#top .sp{flex:1}
+#mini{position:fixed;top:54px;right:8px;width:118px;height:118px;border-radius:12px;border:1px solid var(--line);background:#0e1316cc;z-index:4}
+#where{position:fixed;top:54px;left:8px;max-width:calc(100% - 150px);background:#0e1316cc;border:1px solid var(--line);border-radius:10px;padding:5px 9px;font-size:13px;z-index:4}
+#where b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#where span{color:var(--mut);font-size:12px}
+.stick{position:fixed;bottom:22px;width:116px;height:116px;border-radius:50%;background:#0e131680;border:1.5px solid #ffffff55;touch-action:none;z-index:4}
+.stick i{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px;border-radius:50%;background:#ffffffd0;box-shadow:0 2px 8px #0008;pointer-events:none}
+.stick em{position:absolute;left:0;right:0;top:-20px;text-align:center;font:600 11px system-ui;color:#fffc;text-shadow:0 1px 3px #000;font-style:normal;letter-spacing:.04em;text-transform:uppercase}
+#sL{left:18px}#sR{right:18px}
+#sL.off{opacity:.25;pointer-events:none}
+#zoom{position:fixed;right:10px;top:184px;display:flex;flex-direction:column;gap:6px;z-index:4}
+#zoom button{width:38px;height:38px;padding:0;font-size:20px;background:#171e23cc}
+#ret{position:fixed;left:50%;top:50%;width:44px;height:44px;margin:-22px;pointer-events:none;z-index:3;display:none}
+#ret:before,#ret:after{content:"";position:absolute;background:var(--acc2);box-shadow:0 0 2px #000}
+#ret:before{left:21px;top:0;width:2px;height:44px}#ret:after{top:21px;left:0;height:2px;width:44px}
+#ret i{position:absolute;left:17px;top:17px;width:10px;height:10px;border:2px solid var(--acc2);border-radius:50%;background:#0006}
+#mp{position:fixed;left:8px;right:8px;bottom:156px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:9px;z-index:4;display:none}
+#mp .row{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:6px}
+#mp button{padding:10px 4px;font-size:13px}
+#mpInfo{font-size:13px;color:var(--mut);margin-bottom:7px;min-height:18px}
+#mpInfo b{color:var(--txt)}
+body.measure #ret,body.measure #mp{display:block}
+#sheet{position:fixed;left:0;right:0;bottom:0;max-height:62%;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;z-index:8;display:none;flex-direction:column;backdrop-filter:blur(8px)}
+#sheet.open{display:flex}
+#sheet header{display:flex;align-items:center;padding:12px 14px 6px}
+#sheet header h2{margin:0;font-size:17px;flex:1}
+#sheet .body{overflow:auto;padding:4px 14px 22px;-webkit-overflow-scrolling:touch}
+.sec{display:none}.sec.on{display:block}
+h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:16px 0 6px}
+.item{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.item .g{flex:1;min-width:0}
+.item small{color:var(--mut);display:block}
+.item.cur input[type=text]{border-color:var(--acc)}
+.note{color:var(--mut);font-size:13px;margin:6px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}
+label{font-size:12px;color:var(--mut);display:block;margin-bottom:3px}
+#big{width:100%;height:270px;border-radius:12px;border:1px solid var(--line);background:#0b1013;touch-action:none;display:block}
+#welcome{position:fixed;inset:0;z-index:7;display:none;align-items:center;justify-content:center;padding:22px;background:radial-gradient(circle at 50% 35%,#1b272e,#0e1316)}
+#welcome.on{display:flex}
+#welcome div{max-width:420px;text-align:center}
+#welcome h1{font-size:25px;margin:0 0 8px;letter-spacing:-.01em}
+#welcome p{color:var(--mut);margin:0 0 18px}
+#welcome button{display:block;width:100%;margin:8px 0;padding:13px}
+#toast{position:fixed;left:50%;top:250px;transform:translateX(-50%);background:#000d;border:1px solid var(--line);padding:8px 13px;border-radius:10px;z-index:20;font-size:14px;max-width:88%;text-align:center;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.on{opacity:1}
+#status{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);background:#000c;padding:6px 12px;border-radius:20px;font-size:13px;z-index:20;display:none}
+body.ro .ed{display:none!important}
+body:not(.native) .nat{display:none!important}
+select{font:inherit;color:inherit;background:#0f1519;border:1px solid var(--line);border-radius:8px;padding:8px 9px;width:100%}
+.tag{font-size:12px;color:var(--mut);white-space:nowrap}
+#top{overflow-x:auto}#top button{white-space:nowrap}
+textarea{width:100%;height:120px;background:#0f1519;color:var(--txt);border:1px solid var(--line);border-radius:8px;font:12px ui-monospace,monospace}
+ol{padding-left:20px;margin:6px 0}li{margin:5px 0}
+@media (min-width:800px){#sheet{left:auto;right:12px;bottom:12px;width:430px;border-radius:18px;border:1px solid var(--line);max-height:80%}#mp{left:50%;right:auto;width:440px;margin-left:-220px;bottom:24px}}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="top">
+  <button data-sheet="camera" class="nat">Caméra</button>
+  <button data-sheet="photos">Photos</button>
+  <button id="bMeasure" class="ed">Relevé</button>
+  <button data-sheet="plan">Plan</button>
+  <button data-sheet="export">Revit</button>
+  <span class="sp"></span>
+  <button data-sheet="aide">?</button>
+</div>
+<div id="where"><b id="wName">—</b><span id="wSub"></span></div>
+<canvas id="mini"></canvas>
+<div id="zoom"><button id="zIn">+</button><button id="zOut">−</button></div>
+<div id="ret"><i></i></div>
+
+<div id="mp">
+  <div id="mpInfo"></div>
+  <div class="row">
+    <button class="pri" id="mAdd">＋ Point sol</button>
+    <button id="mH">Hauteur</button>
+    <button id="mUndo">Annuler</button>
+    <button id="mClose">Fermer</button>
+  </div>
+</div>
+
+<div class="stick" id="sL"><em>Déplacer</em><i></i></div>
+<div class="stick" id="sR"><em>Regarder</em><i></i></div>
+
+<div id="sheet">
+  <header><h2 id="shT"></h2><button id="shX">Fermer</button></header>
+  <div class="body">
+    <div class="sec" id="sec-camera">
+      <div id="camState" class="note">Caméra non connectée.</div>
+      <div class="grid2"><button id="cWifi">Réglages Wi-Fi</button><button id="cRefresh">Connecter / actualiser</button></div>
+      <div class="grid2" style="margin-top:10px">
+        <div><label>Retardateur</label><select id="cDelay"><option value="0">Sans</option><option value="3">3 s</option><option value="5" selected>5 s</option><option value="10">10 s</option></select></div>
+        <button class="pri" id="cShot" disabled>Prendre une photo 360</button>
+      </div>
+      <button id="cAll" style="width:100%;margin-top:8px" disabled>Importer toutes les nouvelles photos</button>
+      <h3>Photos sur la carte de la caméra</h3>
+      <div id="cList"><p class="note">Connectez la caméra pour voir ses photos.</p></div>
+      <p class="note">Allumez la caméra, puis connectez le téléphone à son réseau Wi-Fi (bouton « Réglages Wi-Fi », réseau au nom de la caméra). Activez « Assemblage dans la caméra » dans les réglages photo de la X5 : seules les photos JPG assemblées sont importables. Les originaux sont rangés dans la galerie, dossier Pictures/Visite360/nom de la visite.</p>
+    </div>
+    <div class="sec" id="sec-photos">
+      <div class="nat"><h3 style="margin-top:4px">Visite en cours</h3><div class="grid2"><select id="tSel"></select><button id="tNew">Nouvelle visite</button></div><h3>Ajouter des photos</h3></div>
+      <div class="ed">
+        <button class="pri" id="bImport" style="width:100%">Importer depuis le téléphone</button>
+        <input type="file" id="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        <p class="note">Photos équirectangulaires (2:1) exportées en JPG depuis l'app Insta360. <span id="stoNote"></span></p>
+      </div>
+      <h3>Point de vue en cours</h3>
+      <div id="curBox" class="note">Aucun point de vue.</div>
+      <h3>Tous les points de vue</h3>
+      <div id="pList"></div>
+      <div class="ed">
+        <h3>Réglages</h3>
+        <div class="grid2">
+          <div><label>Nom de la visite</label><input type="text" id="tName"></div>
+          <div><label>Hauteur d'objectif (m)</label><input type="number" id="tCam" step="0.01" min="0.3" max="3"></div>
+        </div>
+      </div>
+    </div>
+    <div class="sec" id="sec-plan">
+      <canvas id="big"></canvas>
+      <p class="note"><span class="ed">Glissez un point pour le placer. </span>Touchez un point pour vous y rendre.</p>
+      <h3>Pièces relevées</h3>
+      <div id="rList"></div>
+    </div>
+    <div class="sec" id="sec-export">
+      <div id="exSum" class="note"></div>
+      <button class="pri" id="bZip" style="width:100%">Télécharger le dossier Revit (.zip)</button>
+      <p class="note">Contenu : <b>plan.dxf</b> (contours des pièces en mm, à lier ou importer dans Revit ou ZWCAD), <b>releve.json</b> (murs, hauteurs et points de vue, exploitable par votre connecteur MCP Revit ou Dynamo), <b>murs.csv</b> et une notice.</p>
+      <div id="exAlt" style="display:none">
+        <p class="note">Téléchargement indisponible dans cette vue : copiez le DXF ci-dessous dans un fichier <b>plan.dxf</b>.</p>
+        <textarea id="exTxt" readonly></textarea>
+        <button id="bCopy" style="margin-top:6px">Copier le DXF</button>
+      </div>
+    </div>
+    <div class="sec" id="sec-aide">
+      <h3>Piloter</h3>
+      <p class="note">Joystick gauche : avancer, reculer, pas de côté. Joystick droit : regarder. Vous pouvez aussi glisser le doigt dans l'image, pincer pour zoomer, et toucher un anneau au sol pour rejoindre un point de vue. Au clavier : ZQSD ou WASD, flèches pour regarder.</p>
+      <div class="nat"><h3>Caméra</h3><p class="note">Bouton <b>Caméra</b> : connexion à la X5 en Wi-Fi, déclenchement à distance avec retardateur, import des photos de la carte. Chaque photo importée devient un point de vue de la visite en cours.</p></div>
+      <h3>Construire la visite</h3>
+      <ol>
+        <li>Dans l'app Insta360, exportez vos photos en JPG 360 (pas le fichier .insp brut).</li>
+        <li><b>Photos</b> → importez-les. Elles sont alignées tous les 3 m par défaut.</li>
+        <li><b>Plan</b> → glissez chaque point à sa vraie position. <b>Photos</b> → réglez l'orientation du point en cours.</li>
+      </ol>
+      <h3>Relevé pour Revit</h3>
+      <ol>
+        <li>Vérifiez la hauteur d'objectif (sol → lentille) dans Photos → Réglages : toute la précision en dépend.</li>
+        <li><b>Relevé</b> → visez chaque angle de la pièce au pied du mur avec le viseur, puis « ＋ Point sol ». Zoomez pour viser fin.</li>
+        <li>« Fermer » clôt la pièce. « Hauteur » : visez la jonction mur/plafond d'un mur relevé.</li>
+        <li><b>Revit</b> → téléchargez le dossier.</li>
+      </ol>
+      <p class="note">Le contour d'une pièce relevée s'affiche en surimpression dans tous les points de vue : servez-vous-en pour caler la position et l'orientation des autres photos. Précision indicative : 1 à 3 cm par mètre de distance au point visé, à condition que le sol soit plan et l'angle visible. À recouper avec une cote au laser.</p>
+    </div>
+  </div>
+</div>
+
+<div id="welcome"><div>
+  <h1>Visite 360</h1>
+  <p>Importez vos photos 360, placez-les sur le plan et parcourez les lieux au joystick. Relevez les pièces et exportez-les vers Revit.</p>
+  <button class="pri ed" id="wImport">Importer mes photos 360</button>
+  <button class="nat" id="wCam">Connecter la caméra</button>
+  <button id="wDemo">Essayer la pièce de démonstration</button>
+  <p id="wLoad" style="margin-top:14px"></p>
+</div></div>
+<div id="toast"></div><div id="status"></div>
+
+<script src="three.min.js"></script>
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
+const fmt=(v,n=2)=>Number(v).toFixed(n).replace('.',',');
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+let tour={name:'Ma visite',camH:1.5,panos:[],rooms:[]};
+let saved=null, demo=false, canEdit=true, remote=null, downloads=null, volatile=false;
+const S={x:0,y:0,yaw:0,pitch:0,fov:75,cur:null,pending:null,goal:null,measure:false,draft:null};
+const R=6, LIMIT=3, SPEED=1.7;
+
+/* ---------- application Android ---------- */
+const N=window.Native||null;let nid=0;const ncb=new Map();
+window.__native=(id,ok,txt)=>{const c=ncb.get(id);if(!c)return;ncb.delete(id);ok?c.res(txt):c.rej(new Error(txt||'erreur'));};
+window.__nativeProgress=(id,a,b)=>{const c=ncb.get(id);if(c&&c.prog)c.prog(a,b);};
+function ncall(fn,args,prog){return new Promise((res,rej)=>{const id=++nid;ncb.set(id,{res,rej,prog});try{N[fn](id,...args);}catch(e){ncb.delete(id);rej(e);}});}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let oscQ=Promise.resolve();
+function osc(method,path,body){const run=()=>ncall('osc',[method,path,body?JSON.stringify(body):'']).then(t=>{try{return JSON.parse(t);}catch(e){throw new Error('réponse illisible de la caméra');}});const p=oscQ.then(run,run);oscQ=p.catch(()=>{});return p;}
+function camErr(r){const c=r&&r.error&&r.error.code,m={unactivated:'caméra non activée : ouvrez-la une fois dans l\'app Insta360',disabledCommand:'commande refusée : sortez la caméra de veille et passez en mode photo',invalidParameterName:'option non prise en charge',invalidParameterValue:'valeur refusée par la caméra'};return new Error(m[c]||(r&&r.error&&r.error.message)||c||'erreur caméra');}
+const exec=(name,parameters)=>osc('POST','/osc/commands/execute',parameters?{name,parameters}:{name}).then(r=>{if(r.state==='error')throw camErr(r);return r;});
+
+/* ---------- messages ---------- */
+let toastT;
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),3200);}
+function status(m){const s=$('#status');s.textContent=m;s.style.display=m?'block':'none';}
+
+/* ---------- stockage ---------- */
+let idb=null;
+function idbOpen(){return new Promise((res,rej)=>{try{const q=indexedDB.open('visite360',1);q.onupgradeneeded=()=>{q.result.createObjectStore('kv');q.result.createObjectStore('img');};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);}catch(e){rej(e);}});}
+function idbDo(store,mode,fn){return new Promise((res,rej)=>{if(!idb)return rej(new Error('idb'));try{const tx=idb.transaction(store,mode);const r=fn(tx.objectStore(store));tx.oncomplete=()=>res(r&&r.result);tx.onerror=()=>rej(tx.error);}catch(e){rej(e);}});}
+const idbGet=(s,k)=>idbDo(s,'readonly',o=>o.get(k)), idbPut=(s,k,v)=>idbDo(s,'readwrite',o=>o.put(v,k)), idbDel=(s,k)=>idbDo(s,'readwrite',o=>o.delete(k));
+
+function serial(){return{name:tour.name,camH:tour.camH,
+  panos:tour.panos.map(p=>({id:p.id,name:p.name,asset:p.asset,src:p.src||'',x:+p.x.toFixed(3),y:+p.y.toFixed(3),yaw:p.yaw})),
+  rooms:tour.rooms.map(r=>({id:r.id,name:r.name,h:r.h||0,pts:r.pts.map(q=>({x:+q.x.toFixed(3),y:+q.y.toFixed(3)}))}))};}
+function load(d){d=JSON.parse(JSON.stringify(d||{}));tour={name:d.name||'Ma visite',camH:+d.camH||1.5,
+  panos:(d.panos||[]).filter(p=>p&&p.asset).map(p=>({id:p.id||uid(),name:String(p.name||'Point'),asset:String(p.asset),src:String(p.src||''),x:+p.x||0,y:+p.y||0,yaw:+p.yaw||0})),
+  rooms:(d.rooms||[]).filter(r=>r&&Array.isArray(r.pts)).map(r=>({id:r.id||uid(),name:String(r.name||'Pièce'),h:+r.h||0,pts:r.pts.map(q=>({x:+q.x||0,y:+q.y||0}))}))};}
+let saveT=null, chain=Promise.resolve();
+function touch(){if(demo||!canEdit)return;clearTimeout(saveT);saveT=setTimeout(saveNow,600);}
+function saveNow(){clearTimeout(saveT);saveT=null;if(demo||!canEdit)return;const d=serial();
+  if(N){try{N.saveTour(tour.id,JSON.stringify(d));}catch(e){toast('Enregistrement impossible');}return;}
+  chain=chain.then(()=>persist(d)).catch(()=>toast('Enregistrement impossible pour le moment'));}
+async function persist(d){if(remote)await remote.db.doc('visites/principale').set(d);else if(idb)await idbPut('kv','tour',d);}
+const timeout=(p,ms)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error('délai')),ms))]);
+
+/* ---------- 3D ---------- */
+const cv=$('#gl');
+let renderer,scene,camera,mA,mB,rings,lines,maxTex=4096,fade=1;
+function init3D(){
+  renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  maxTex=renderer.capabilities.maxTextureSize||4096;
+  scene=new THREE.Scene();scene.background=new THREE.Color(0x0e1316);
+  camera=new THREE.PerspectiveCamera(S.fov,1,0.05,300);camera.rotation.order='YXZ';
+  const geo=new THREE.SphereGeometry(R,72,44);geo.scale(-1,1,1);
+  const mk=o=>{const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({transparent:true,depthTest:false,depthWrite:false}));m.renderOrder=o;m.visible=false;scene.add(m);return m;};
+  mB=mk(0);mA=mk(1);
+  rings=new THREE.Group();lines=new THREE.Group();scene.add(rings,lines);
+  resize();addEventListener('resize',resize);
+}
+function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+const texCache=new Map();
+async function urlOf(p){
+  if(p.asset.startsWith('app:'))return '/photos/'+tour.id+'/'+p.asset.slice(4);
+  if(p.url)return p.url;
+  if(p.asset.startsWith('local:')){const b=await idbGet('img',p.asset);if(!b)throw new Error('photo absente');p.url=URL.createObjectURL(b);return p.url;}
+  return '/_blob/'+p.asset;
+}
+function getTex(p){
+  if(texCache.has(p.id))return texCache.get(p.id);
+  const pr=urlOf(p).then(u=>new Promise((res,rej)=>{const im=new Image();im.onload=()=>{const t=new THREE.Texture(im);t.generateMipmaps=false;t.minFilter=THREE.LinearFilter;t.magFilter=THREE.LinearFilter;t.needsUpdate=true;res(t);};im.onerror=()=>rej(new Error('image illisible'));im.src=u;}));
+  texCache.set(p.id,pr);pr.catch(()=>texCache.delete(p.id));return pr;
+}
+function evict(){for(const [id,pr] of texCache){if(texCache.size<=3)break;if((S.cur&&S.cur.id===id)||(S.pending&&S.pending.id===id)||(mB.visible&&mB.userData.id===id))continue;texCache.delete(id);pr.then(t=>t.dispose()).catch(()=>{});}}
+function place(m,p){m.position.set(p.x,tour.camH,p.y);m.rotation.y=-Math.PI/2-rad(p.yaw);m.userData.id=p.id;}
+function show(p,tex){
+  if(mA.visible&&mA.material.map){mB.material.map=mA.material.map;mB.material.needsUpdate=true;mB.position.copy(mA.position);mB.rotation.copy(mA.rotation);mB.userData.id=mA.userData.id;mB.material.opacity=1;mB.visible=true;fade=0;}else fade=1;
+  mA.material.map=tex;mA.material.needsUpdate=true;mA.material.opacity=fade;mA.visible=true;place(mA,p);
+  S.cur=p;evict();hud();
+}
+function request(p){if(!p||S.pending===p||S.cur===p)return;S.pending=p;status('Chargement…');
+  getTex(p).then(t=>{if(S.pending===p){S.pending=null;status('');show(p,t);}}).catch(e=>{if(S.pending===p){S.pending=null;status('');toast('Photo « '+p.name+' » : '+e.message);}});}
+function nearest(x,y){let b=null,bd=1e9;for(const p of tour.panos){const d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;b=p;}}return{p:b,d:bd};}
+function goTo(p){if(!p)return;S.goal={x:p.x,y:p.y};request(p);}
+function jumpTo(p){S.x=p.x;S.y=p.y;S.goal=null;request(p);}
+
+const lineMat=c=>new THREE.LineBasicMaterial({color:c,depthTest:false,transparent:true,opacity:.95});
+function rebuildOverlay(){
+  for(const g of [rings,lines])while(g.children.length){const c=g.children.pop();c.geometry.dispose();}
+  const rg=new THREE.RingGeometry(0.15,0.24,36);
+  for(const p of tour.panos){const m=new THREE.Mesh(rg.clone(),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.85,depthTest:false,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.set(p.x,0.02,p.y);m.renderOrder=5;m.userData.pano=p;rings.add(m);}
+  const loop=(pts,y,closed,c)=>{const v=pts.map(q=>new THREE.Vector3(q.x,y,q.y));if(closed&&v.length)v.push(v[0].clone());const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints(v),lineMat(c));l.renderOrder=6;lines.add(l);};
+  for(const r of tour.rooms){loop(r.pts,0.01,true,0x35d0a5);if(r.h>0){loop(r.pts,r.h,true,0x35d0a5);for(const q of r.pts){const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(q.x,0,q.y),new THREE.Vector3(q.x,r.h,q.y)]),lineMat(0x35d0a5));l.renderOrder=6;lines.add(l);}}}
+  if(S.draft){loop(S.draft.pts,0.01,false,0xffb347);for(const q of S.draft.pts){const m=new THREE.Mesh(new THREE.RingGeometry(0.03,0.07,20),new THREE.MeshBasicMaterial({color:0xffb347,depthTest:false,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.set(q.x,0.015,q.y);m.renderOrder=7;lines.add(m);}}
+}
+
+/* ---------- commandes ---------- */
+function stick(el){const k=el.querySelector('i'),v={x:0,y:0};let id=null;
+  const set=e=>{const r=el.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const m=r.width/2-16,l=Math.hypot(dx,dy);if(l>m){dx*=m/l;dy*=m/l;}v.x=dx/m;v.y=dy/m;k.style.transform='translate('+dx+'px,'+dy+'px)';};
+  el.addEventListener('pointerdown',e=>{id=e.pointerId;try{el.setPointerCapture(id);}catch(_){}set(e);e.preventDefault();});
+  el.addEventListener('pointermove',e=>{if(e.pointerId===id)set(e);});
+  const end=e=>{if(e.pointerId===id){id=null;v.x=v.y=0;k.style.transform='';}};
+  el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);return v;}
+const jL=stick($('#sL')), jR=stick($('#sR'));
+const keys={};
+addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target.tagName))return;keys[e.key.toLowerCase()]=true;});
+addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+const ptr=new Map();let pinch=0,tap=null;
+cv.addEventListener('pointerdown',e=>{try{cv.setPointerCapture(e.pointerId);}catch(_){}ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});tap=ptr.size===1?{x:e.clientX,y:e.clientY,t:performance.now()}:null;if(ptr.size===2){const a=[...ptr.values()];pinch=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);}});
+cv.addEventListener('pointermove',e=>{const p=ptr.get(e.pointerId);if(!p)return;
+  if(ptr.size===1){const k=rad(S.fov)/innerHeight;S.yaw-=(e.clientX-p.x)*k;S.pitch=clamp(S.pitch+(e.clientY-p.y)*k,-1.5,1.5);}
+  p.x=e.clientX;p.y=e.clientY;
+  if(ptr.size===2){const a=[...ptr.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);if(pinch>0)setFov(S.fov*pinch/d);pinch=d;}});
+const pend=e=>{ptr.delete(e.pointerId);
+  if(tap&&e.type==='pointerup'&&performance.now()-tap.t<350&&Math.hypot(e.clientX-tap.x,e.clientY-tap.y)<9)pick(e.clientX,e.clientY);tap=null;};
+cv.addEventListener('pointerup',pend);cv.addEventListener('pointercancel',pend);
+cv.addEventListener('wheel',e=>{setFov(S.fov*(e.deltaY>0?1.1:0.9));e.preventDefault();},{passive:false});
+function setFov(f){S.fov=clamp(f,18,100);camera.fov=S.fov;camera.updateProjectionMatrix();}
+$('#zIn').onclick=()=>setFov(S.fov*0.75);$('#zOut').onclick=()=>setFov(S.fov/0.75);
+const ray=new THREE.Raycaster();
+function pick(x,y){ray.setFromCamera({x:x/innerWidth*2-1,y:-(y/innerHeight)*2+1},camera);let best=null,bd=0.35;
+  for(const m of rings.children){const o=ray.ray.origin,d=ray.ray.direction;if(d.y>=-0.01)continue;const t=(0.02-o.y)/d.y;const px=o.x+d.x*t,pz=o.z+d.z*t;const dist=Math.hypot(px-m.position.x,pz-m.position.z);const tol=Math.max(0.35,t*0.06);if(dist<tol&&(best===null||dist<bd)){bd=dist;best=m.userData.pano;}}
+  if(best&&best!==S.cur)goTo(best);}
+
+/* ---------- boucle ---------- */
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000);last=now;
+  const kx=(keys['d']||0)-(keys['q']||keys['a']||0), ky=(keys['s']||0)-(keys['z']||keys['w']||0);
+  const lx=(keys['arrowright']||0)-(keys['arrowleft']||0), ly=(keys['arrowdown']||0)-(keys['arrowup']||0);
+  const rate=1.5*S.fov/75;
+  S.yaw+=(jR.x+lx)*rate*dt;S.pitch=clamp(S.pitch-(jR.y+ly)*rate*0.8*dt,-1.5,1.5);
+  let mx=jL.x+kx,my=jL.y+ky;
+  if(S.measure)mx=my=0;
+  if(mx||my){S.goal=null;const f=-my,s=mx;
+    let nx=S.x+(Math.sin(S.yaw)*f+Math.cos(S.yaw)*s)*SPEED*dt, ny=S.y+(-Math.cos(S.yaw)*f+Math.sin(S.yaw)*s)*SPEED*dt;
+    const n=nearest(nx,ny);if(n.p&&n.d>LIMIT){nx=n.p.x+(nx-n.p.x)*LIMIT/n.d;ny=n.p.y+(ny-n.p.y)*LIMIT/n.d;}
+    S.x=nx;S.y=ny;
+  }else if(S.goal){const dx=S.goal.x-S.x,dy=S.goal.y-S.y,d=Math.hypot(dx,dy),st=Math.max(4,d*5)*dt;if(d<=st){S.x=S.goal.x;S.y=S.goal.y;S.goal=null;}else{S.x+=dx/d*st;S.y+=dy/d*st;}}
+  if(tour.panos.length&&!S.goal&&!S.measure){const n=nearest(S.x,S.y);const dc=S.cur?Math.hypot(S.cur.x-S.x,S.cur.y-S.y):1e9;if(n.p&&n.p!==S.cur&&n.d+0.25<dc)request(n.p);}
+  if(fade<1){fade=Math.min(1,fade+dt/0.45);mA.material.opacity=fade;if(fade>=1)mB.visible=false;}
+  camera.position.set(S.x,tour.camH,S.y);camera.rotation.y=-S.yaw;camera.rotation.x=S.pitch;
+  renderer.render(scene,camera);
+  drawMap($('#mini'),null,false);
+  if(bigOpen)drawMap($('#big'),dragT,true);
+  if(S.measure)mpInfo();
+  requestAnimationFrame(frame);
+}
+function hud(){$('#wName').textContent=S.cur?S.cur.name:'—';$('#wSub').textContent=(demo?'Démonstration · ':'')+tour.panos.length+' point'+(tour.panos.length>1?'s':'')+' de vue';}
+
+/* ---------- plan ---------- */
+function fitT(w,h){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const add=(x,y)=>{x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);};
+  tour.panos.forEach(p=>add(p.x,p.y));tour.rooms.forEach(r=>r.pts.forEach(q=>add(q.x,q.y)));if(S.draft)S.draft.pts.forEach(q=>add(q.x,q.y));add(S.x,S.y);
+  const s=Math.min(w/(Math.max(x1-x0,3)+2.5),h/(Math.max(y1-y0,3)+2.5));return{s,ox:w/2-(x0+x1)/2*s,oy:h/2-(y0+y1)/2*s};}
+function drawMap(c,T,big){
+  const w=c.clientWidth,h=c.clientHeight,dp=Math.min(devicePixelRatio||1,2);if(!w)return null;
+  if(c.width!==w*dp||c.height!==h*dp){c.width=w*dp;c.height=h*dp;}
+  const g=c.getContext('2d');g.setTransform(dp,0,0,dp,0,0);g.clearRect(0,0,w,h);
+  T=T||fitT(w,h);const X=x=>x*T.s+T.ox,Y=y=>y*T.s+T.oy;
+  g.lineJoin='round';
+  for(const r of tour.rooms){g.beginPath();r.pts.forEach((q,i)=>i?g.lineTo(X(q.x),Y(q.y)):g.moveTo(X(q.x),Y(q.y)));g.closePath();g.fillStyle='#35d0a522';g.fill();g.strokeStyle='#35d0a5';g.lineWidth=big?2:1.5;g.stroke();
+    if(big){g.fillStyle='#bfeee0';g.font='11px system-ui';g.textAlign='center';r.pts.forEach((q,i)=>{const n=r.pts[(i+1)%r.pts.length];g.fillText(fmt(Math.hypot(n.x-q.x,n.y-q.y)),X((q.x+n.x)/2),Y((q.y+n.y)/2)-3);});
+      const cx=r.pts.reduce((s,q)=>s+q.x,0)/r.pts.length,cy=r.pts.reduce((s,q)=>s+q.y,0)/r.pts.length;g.fillStyle='#e9eef0';g.font='600 12px system-ui';g.fillText(r.name,X(cx),Y(cy));}}
+  if(S.draft&&S.draft.pts.length){g.beginPath();S.draft.pts.forEach((q,i)=>i?g.lineTo(X(q.x),Y(q.y)):g.moveTo(X(q.x),Y(q.y)));g.strokeStyle='#ffb347';g.lineWidth=2;g.stroke();g.fillStyle='#ffb347';for(const q of S.draft.pts){g.beginPath();g.arc(X(q.x),Y(q.y),3,0,7);g.fill();}}
+  const a=rad(S.fov)*camera.aspect/2,L=big?46:26;g.beginPath();g.moveTo(X(S.x),Y(S.y));g.arc(X(S.x),Y(S.y),L,S.yaw-Math.PI/2-Math.min(a,1.2),S.yaw-Math.PI/2+Math.min(a,1.2));g.closePath();g.fillStyle='#ffffff30';g.fill();
+  for(const p of tour.panos){g.beginPath();g.arc(X(p.x),Y(p.y),big?7:4,0,7);g.fillStyle=p===S.cur?'#35d0a5':'#dfe6e9';g.fill();g.strokeStyle='#0e1316';g.lineWidth=1.5;g.stroke();if(big){g.fillStyle='#93a1a8';g.font='11px system-ui';g.textAlign='center';g.fillText(p.name.slice(0,16),X(p.x),Y(p.y)+19);}}
+  g.beginPath();g.arc(X(S.x),Y(S.y),big?4:3,0,7);g.fillStyle='#fff';g.fill();
+  return T;
+}
+let bigOpen=false,dragT=null,drag=null;
+const big=$('#big');
+function bigPos(e){const r=big.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+big.addEventListener('pointerdown',e=>{const T=fitT(big.clientWidth,big.clientHeight),m=bigPos(e);let hit=null,bd=22;for(const p of tour.panos){const d=Math.hypot(p.x*T.s+T.ox-m.x,p.y*T.s+T.oy-m.y);if(d<bd){bd=d;hit=p;}}
+  if(!hit)return;try{big.setPointerCapture(e.pointerId);}catch(_){}dragT=T;drag={p:hit,sx:m.x,sy:m.y,moved:false};e.preventDefault();});
+big.addEventListener('pointermove',e=>{if(!drag)return;const m=bigPos(e);if(!drag.moved&&Math.hypot(m.x-drag.sx,m.y-drag.sy)<7)return;if(!canEdit)return;drag.moved=true;
+  drag.p.x=(m.x-dragT.ox)/dragT.s;drag.p.y=(m.y-dragT.oy)/dragT.s;if(drag.p===S.cur){place(mA,drag.p);S.x=drag.p.x;S.y=drag.p.y;}});
+const bigEnd=()=>{if(!drag)return;const d=drag;drag=null;dragT=null;if(d.moved){rebuildOverlay();touch();}else jumpTo(d.p);};
+big.addEventListener('pointerup',bigEnd);big.addEventListener('pointercancel',bigEnd);
+$('#mini').addEventListener('click',()=>openSheet('plan'));
+
+/* ---------- relevé ---------- */
+const area=pts=>Math.abs(pts.reduce((s,q,i)=>{const n=pts[(i+1)%pts.length];return s+q.x*n.y-n.x*q.y;},0))/2;
+const perim=pts=>pts.reduce((s,q,i)=>{const n=pts[(i+1)%pts.length];return s+Math.hypot(n.x-q.x,n.y-q.y);},0);
+function setMeasure(on){
+  if(on&&!tour.panos.length){toast('Importez d\'abord une photo 360');return;}
+  S.measure=on;document.body.classList.toggle('measure',on);$('#bMeasure').classList.toggle('on',on);$('#sL').classList.toggle('off',on);
+  if(on){closeSheet();if(S.cur)S.goal={x:S.cur.x,y:S.cur.y};if(S.fov>60)setFov(55);}
+}
+function aimDist(){return S.pitch<-rad(1.5)?tour.camH/Math.tan(-S.pitch):null;}
+function mpInfo(){const d=aimDist(),n=S.draft?S.draft.pts.length:0;let t='Visée : '+(d&&d<30?'<b>'+fmt(d)+' m</b> au sol':'visez le sol');
+  if(n){const l=S.draft.pts[n-1];if(d&&d<30){const q=aimPt();t+=' · côté <b>'+fmt(Math.hypot(q.x-l.x,q.y-l.y))+' m</b>';}t+=' · '+n+' point'+(n>1?'s':'');}
+  $('#mpInfo').innerHTML=t;}
+function aimPt(){const t=aimDist();return{x:S.x+Math.sin(S.yaw)*t,y:S.y-Math.cos(S.yaw)*t};}
+function snap(){if(S.cur){S.x=S.cur.x;S.y=S.cur.y;S.goal=null;}}
+$('#mAdd').onclick=()=>{snap();const d=aimDist();if(!d)return toast('Visez le pied du mur, au sol');if(d>25)return toast('Point trop lointain : rapprochez-vous');
+  if(!S.draft)S.draft={pts:[],h:0};S.draft.pts.push(aimPt());rebuildOverlay();};
+$('#mUndo').onclick=()=>{if(S.draft&&S.draft.pts.length){S.draft.pts.pop();if(!S.draft.pts.length)S.draft=null;rebuildOverlay();}};
+$('#mClose').onclick=()=>{if(!S.draft||S.draft.pts.length<3)return toast('Il faut au moins 3 points');
+  const r={id:uid(),name:'Pièce '+(tour.rooms.length+1),h:S.draft.h||0,pts:S.draft.pts};tour.rooms.push(r);S.draft=null;rebuildOverlay();touch();
+  toast(r.name+' : '+fmt(area(r.pts))+' m² · périmètre '+fmt(perim(r.pts))+' m');};
+$('#mH').onclick=()=>{snap();const tgt=S.draft&&S.draft.pts.length>1?S.draft:tour.rooms[tour.rooms.length-1];if(!tgt)return toast('Relevez d\'abord au moins un mur');
+  if(S.pitch<rad(2))return toast('Visez la jonction mur / plafond');
+  const o={x:S.x,y:S.y},d={x:Math.sin(S.yaw),y:-Math.cos(S.yaw)},P=tgt.pts,n=tgt===S.draft?P.length-1:P.length;let best=null;
+  for(let i=0;i<n;i++){const a=P[i],b=P[(i+1)%P.length],ex=b.x-a.x,ey=b.y-a.y,den=d.x*ey-d.y*ex;if(Math.abs(den)<1e-9)continue;const t=((a.x-o.x)*ey-(a.y-o.y)*ex)/den,u=((a.x-o.x)*d.y-(a.y-o.y)*d.x)/den;if(t>0.05&&u>=-0.02&&u<=1.02&&(best===null||t<best))best=t;}
+  if(best===null)return toast('Visez un mur déjà relevé');
+  tgt.h=+(tour.camH+best*Math.tan(S.pitch)).toFixed(3);rebuildOverlay();touch();toast('Hauteur sous plafond : '+fmt(tgt.h)+' m');};
+$('#bMeasure').onclick=()=>setMeasure(!S.measure);
+
+/* ---------- panneaux ---------- */
+const titles={camera:'Caméra Insta360',photos:'Photos 360',plan:'Plan de la visite',export:'Export Revit',aide:'Mode d\'emploi'};
+function openSheet(n){document.querySelectorAll('.sec').forEach(s=>s.classList.toggle('on',s.id==='sec-'+n));$('#shT').textContent=titles[n];$('#sheet').classList.add('open');bigOpen=n==='plan';
+  if(n==='camera')camOpen();if(n==='photos')renderPhotos();if(n==='plan')renderRooms();if(n==='export')renderExport();}
+function closeSheet(){$('#sheet').classList.remove('open');bigOpen=false;}
+$('#shX').onclick=closeSheet;
+document.querySelectorAll('[data-sheet]').forEach(b=>b.onclick=()=>openSheet(b.dataset.sheet));
+
+function renderPhotos(){
+  $('#tName').value=tour.name;$('#tCam').value=tour.camH;
+  if(N)renderTours();
+  $('#stoNote').textContent=demo?'':N?'Elles sont conservées dans l\'application, sur ce téléphone.':remote?'Elles sont enregistrées avec la visite et se retrouvent sur tous vos appareils.':volatile?'Stockage indisponible ici : la visite ne sera pas conservée à la fermeture.':'Elles sont conservées dans ce navigateur uniquement.';
+  const c=S.cur,box=$('#curBox');
+  if(!c)box.textContent='Aucun point de vue.';
+  else{box.innerHTML='<b>'+esc(c.name)+'</b><div class="ed"><label style="margin-top:8px">Orientation de la photo : <span id="yawV">'+Math.round(c.yaw)+'</span>°</label><input type="range" id="yaw" min="-180" max="180" step="1" value="'+c.yaw+'"><p class="note">Tournez jusqu\'à ce que la photo soit calée sur le plan et sur les contours relevés.</p></div>';
+    const y=$('#yaw');if(y){y.oninput=()=>{c.yaw=+y.value;$('#yawV').textContent=y.value;if(S.cur===c)place(mA,c);};y.onchange=touch;}}
+  const L=$('#pList');L.innerHTML=tour.panos.length?'':'<p class="note">Aucune photo importée.</p>';
+  tour.panos.forEach(p=>{const d=document.createElement('div');d.className='item'+(p===S.cur?' cur':'');
+    d.innerHTML='<div class="g"><input type="text" value="'+esc(p.name)+'" '+(canEdit?'':'disabled')+'><small>x '+fmt(p.x)+' m · y '+fmt(-p.y)+' m</small></div><button>Aller</button><button class="warn ed">Suppr.</button>';
+    const [inp]=d.getElementsByTagName('input'),[go,del]=d.getElementsByTagName('button');
+    inp.onchange=()=>{p.name=inp.value.trim().slice(0,40)||'Point';hud();touch();};
+    go.onclick=()=>{jumpTo(p);closeSheet();};
+    del.onclick=()=>{if(del.dataset.ok){removePano(p);}else{del.dataset.ok=1;del.textContent='Confirmer';setTimeout(()=>{del.dataset.ok='';del.textContent='Suppr.';},3000);}};
+    L.appendChild(d);});
+}
+$('#tName').onchange=e=>{tour.name=e.target.value.trim().slice(0,60)||'Ma visite';touch();};
+$('#tCam').onchange=e=>{const v=+String(e.target.value).replace(',','.');if(v>=0.3&&v<=3){tour.camH=v;if(S.cur)place(mA,S.cur);touch();}else e.target.value=tour.camH;};
+async function removePano(p){
+  tour.panos=tour.panos.filter(q=>q!==p);texCache.delete(p.id);
+  if(!demo){try{if(p.asset.startsWith('app:'))N.deletePhoto(tour.id,p.asset.slice(4));else if(remote&&remote.assets)await remote.assets.delete(p.asset);else if(idb)await idbDel('img',p.asset);}catch(e){}}
+  if(S.cur===p){S.cur=null;mA.visible=false;mB.visible=false;if(tour.panos[0])jumpTo(tour.panos[0]);}
+  rebuildOverlay();touch();hud();renderPhotos();if(!tour.panos.length)welcome(true);
+}
+function renderRooms(){const L=$('#rList');L.innerHTML=tour.rooms.length?'':'<p class="note">Aucune pièce relevée. Utilisez « Relevé » pour pointer les angles au sol.</p>';
+  tour.rooms.forEach(r=>{const d=document.createElement('div');d.className='item';
+    d.innerHTML='<div class="g"><input type="text" value="'+esc(r.name)+'" '+(canEdit?'':'disabled')+'><small>'+fmt(area(r.pts))+' m² · périmètre '+fmt(perim(r.pts))+' m · '+r.pts.length+' murs</small></div><div style="width:84px"><label>HSP (m)</label><input type="number" step="0.01" value="'+(r.h||'')+'" '+(canEdit?'':'disabled')+'></div><button class="warn ed">Suppr.</button>';
+    const [nm,hh]=d.getElementsByTagName('input'),[del]=d.getElementsByTagName('button');
+    nm.onchange=()=>{r.name=nm.value.trim().slice(0,40)||'Pièce';touch();};
+    hh.onchange=()=>{r.h=Math.max(0,+String(hh.value).replace(',','.')||0);rebuildOverlay();touch();};
+    del.onclick=()=>{if(del.dataset.ok){tour.rooms=tour.rooms.filter(q=>q!==r);rebuildOverlay();touch();renderRooms();}else{del.dataset.ok=1;del.textContent='Confirmer';setTimeout(()=>{del.dataset.ok='';del.textContent='Suppr.';},3000);}};
+    L.appendChild(d);});}
+
+/* ---------- import ---------- */
+const loadImg=u=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('fichier illisible'));i.src=u;});
+async function toEqui(f){
+  const u=URL.createObjectURL(f);try{
+    const im=await loadImg(u),w=im.naturalWidth,h=im.naturalHeight;
+    if(Math.abs(w/h-2)>0.06)throw new Error('ce n\'est pas une photo 360 équirectangulaire (format 2:1 attendu)');
+    const maxW=Math.min(maxTex>=8192?6144:4096,maxTex);
+    if(w<=maxW&&f.size<15e6&&f.type==='image/jpeg')return f;
+    const W=Math.min(w,maxW),H=W/2,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');
+    let src=im;try{if(window.createImageBitmap&&w>W)src=await createImageBitmap(f,{resizeWidth:W,resizeHeight:H,resizeQuality:'high'});}catch(e){src=im;}
+    g.drawImage(src,0,0,W,H);if(src.close)src.close();
+    const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.88));c.width=c.height=1;if(!b)throw new Error('conversion impossible');return b;
+  }finally{URL.revokeObjectURL(u);}
+}
+async function importFiles(files){
+  files=[...files];if(!files.length)return;if(demo)leaveDemo();welcome(false);let ok=0;
+  for(let i=0;i<files.length;i++){const f=files[i];status('Import '+(i+1)+'/'+files.length+'…');
+    try{const blob=await toEqui(f);let asset;
+      if(remote){asset=(await remote.assets.upload(blob,{type:'image/jpeg'})).id;}
+      else{asset='local:'+uid();if(idb){try{await idbPut('img',asset,blob);}catch(e){volatile=true;}}else volatile=true;}
+      const l=tour.panos[tour.panos.length-1];
+      const p={id:uid(),name:f.name.replace(/\.[^.]+$/,'').slice(0,40)||'Point',asset,x:l?l.x+3:0,y:l?l.y:0,yaw:0,url:URL.createObjectURL(blob)};
+      tour.panos.push(p);ok++;rebuildOverlay();hud();touch();if(!S.cur&&!S.pending)jumpTo(p);
+    }catch(e){toast(f.name+' : '+(e&&e.message||'import impossible'));await new Promise(r=>setTimeout(r,1800));}}
+  status('');if(ok){toast(ok+' photo'+(ok>1?'s':'')+' importée'+(ok>1?'s':'')+(volatile?' (non conservées à la fermeture)':''));if($('#sheet').classList.contains('open'))renderPhotos();}
+  else if(!tour.panos.length)welcome(true);
+}
+$('#file').onchange=e=>{importFiles(e.target.files);e.target.value='';};
+$('#bImport').onclick=$('#wImport').onclick=()=>$('#file').click();
+
+/* ---------- démonstration ---------- */
+function demoPano(px,py){const W=2048,H=1024,rw=7,rd=5,rh=2.7,ch=1.5,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),im=g.createImageData(W,H),D=im.data;
+  const wall=[[196,208,214],[214,203,188],[190,205,196],[208,196,206]];
+  for(let j=0;j<H;j++){const th=(j+0.5)/H*Math.PI,sy=Math.cos(th),sr=Math.sin(th);
+    for(let i=0;i<W;i++){const ph=(i+0.5)/W*2*Math.PI,dx=Math.cos(ph)*sr,dz=Math.sin(ph)*sr;let t=1e9,k=0;
+      if(dx>0){const q=(rw-px)/dx;if(q<t){t=q;k=1;}}else if(dx<0){const q=-px/dx;if(q<t){t=q;k=3;}}
+      if(dz>0){const q=(rd-py)/dz;if(q<t){t=q;k=2;}}else if(dz<0){const q=-py/dz;if(q<t){t=q;k=0;}}
+      let col;if(sy>0){const q=(rh-ch)/sy;if(q<t){t=q;k=4;}}else if(sy<0){const q=ch/-sy;if(q<t){t=q;k=5;}}
+      const X=px+dx*t,Z=py+dz*t,Yh=ch+sy*t;
+      if(k===5){const a=(Math.floor(X)+Math.floor(Z))&1;col=a?[150,132,112]:[168,150,128];}
+      else if(k===4){const l=Math.hypot(X-rw/2,Z-rd/2)<0.45;col=l?[255,250,225]:[236,238,238];}
+      else{col=wall[k].slice();const s=(k===0||k===2)?X:Z;const f=s-Math.floor(s);if(f<0.02||f>0.98)col=col.map(v=>v*0.82);if(Yh<0.1)col=[90,96,100];
+        if(k===0&&X>2.8&&X<3.7&&Yh<2.05)col=(X<2.85||X>3.65||Yh>2)?[86,70,58]:[128,104,84];
+        if(k===2&&X>2&&X<5&&Yh>0.9&&Yh<2.1)col=(Math.abs(X-3.5)<0.03||Yh<0.94||Yh>2.06||X<2.04||X>4.96)?[240,240,240]:[150,196,226];}
+      const sh=Math.max(0.55,1-t*0.045),o=(j*W+i)*4;D[o]=col[0]*sh;D[o+1]=col[1]*sh;D[o+2]=col[2]*sh;D[o+3]=255;}}
+  g.putImageData(im,0,0);return c.toDataURL('image/jpeg',0.9);}
+function startDemo(){saved=serial();saved.id=tour.id;demo=true;welcome(false);status('Préparation de la démonstration…');
+  setTimeout(()=>{tour={name:'Démonstration',camH:1.5,rooms:[{id:'d',name:'Bureau témoin',h:2.7,pts:[{x:0,y:0},{x:7,y:0},{x:7,y:5},{x:0,y:5}]}],
+    panos:[[1.5,2.5,'Entrée'],[3.6,2.6,'Centre'],[5.6,2.4,'Fond']].map(a=>({id:uid(),name:a[2],asset:'demo',x:a[0],y:a[1],yaw:-90,url:demoPano(a[0],a[1])}))};
+    texCache.clear();S.cur=null;S.yaw=Math.PI/2;S.pitch=0;status('');rebuildOverlay();jumpTo(tour.panos[0]);hud();toast('Joystick gauche pour avancer, droit pour regarder');},30);}
+function leaveDemo(){demo=false;const sid=saved&&saved.id;load(saved||{});tour.id=sid||tour.id;saved=null;texCache.clear();S.cur=null;S.draft=null;mA.visible=mB.visible=false;rebuildOverlay();hud();}
+$('#wDemo').onclick=startDemo;
+function welcome(on){$('#welcome').classList.toggle('on',on);}
+
+/* ---------- export ---------- */
+const ascii=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\x20-\x7e]/g,'_');
+function dxf(){const o=[],p=(...a)=>{for(let i=0;i<a.length;i+=2)o.push(String(a[i]),String(a[i+1]));},mm=v=>(v*1000).toFixed(1);
+  const layers=[['MURS_RELEVE',3],['PIECES_TEXTE',7],['POINTS_360',1]];
+  p(0,'SECTION',2,'HEADER',9,'$ACADVER',1,'AC1009',0,'ENDSEC');
+  p(0,'SECTION',2,'TABLES',0,'TABLE',2,'LTYPE',70,1,0,'LTYPE',2,'CONTINUOUS',70,0,3,'Solid line',72,65,73,0,40,'0.0',0,'ENDTAB');
+  p(0,'TABLE',2,'LAYER',70,layers.length);for(const [n,c] of layers)p(0,'LAYER',2,n,70,0,62,c,6,'CONTINUOUS');p(0,'ENDTAB',0,'ENDSEC');
+  p(0,'SECTION',2,'ENTITIES');
+  for(const r of tour.rooms){p(0,'POLYLINE',8,'MURS_RELEVE',66,1,70,1);for(const q of r.pts)p(0,'VERTEX',8,'MURS_RELEVE',10,mm(q.x),20,mm(-q.y),30,'0.0');p(0,'SEQEND',8,'MURS_RELEVE');
+    const cx=r.pts.reduce((s,q)=>s+q.x,0)/r.pts.length,cy=r.pts.reduce((s,q)=>s+q.y,0)/r.pts.length;
+    p(0,'TEXT',8,'PIECES_TEXTE',10,mm(cx),20,mm(-cy),30,'0.0',40,150,1,ascii(r.name));
+    p(0,'TEXT',8,'PIECES_TEXTE',10,mm(cx),20,mm(-cy-0.25),30,'0.0',40,100,1,ascii(fmt(area(r.pts))+' m2'+(r.h?' - HSP '+fmt(r.h)+' m':'')));}
+  for(const q of tour.panos){p(0,'CIRCLE',8,'POINTS_360',10,mm(q.x),20,mm(-q.y),30,'0.0',40,120);p(0,'TEXT',8,'POINTS_360',10,mm(q.x+0.18),20,mm(-q.y),30,'0.0',40,90,1,ascii(q.name));}
+  p(0,'ENDSEC',0,'EOF');return o.join('\r\n')+'\r\n';}
+function releve(){return JSON.stringify({format:'betCVC-visite360',version:1,visite:tour.name,unite:'m',repere:'x vers la droite du plan, y vers le haut du plan, z vers le haut',hauteur_objectif:tour.camH,
+  pieces:tour.rooms.map(r=>({nom:r.name,hauteur_sous_plafond:r.h||null,surface:+area(r.pts).toFixed(3),perimetre:+perim(r.pts).toFixed(3),contour:r.pts.map(q=>[+q.x.toFixed(3),+(-q.y).toFixed(3)]),
+    murs:r.pts.map((q,i)=>{const n=r.pts[(i+1)%r.pts.length];return{debut:[+q.x.toFixed(3),+(-q.y).toFixed(3)],fin:[+n.x.toFixed(3),+(-n.y).toFixed(3)],longueur:+Math.hypot(n.x-q.x,n.y-q.y).toFixed(3),hauteur:r.h||null};})})),
+  points_de_vue:tour.panos.map(p=>({nom:p.name,x:+p.x.toFixed(3),y:+(-p.y).toFixed(3),z:tour.camH,orientation_deg:p.yaw}))},null,1);}
+function csv(){const L=['piece;mur;x1_m;y1_m;x2_m;y2_m;longueur_m;hauteur_m'];for(const r of tour.rooms)r.pts.forEach((q,i)=>{const n=r.pts[(i+1)%r.pts.length];L.push([r.name.replace(/;/g,','),i+1,fmt(q.x,3),fmt(-q.y,3),fmt(n.x,3),fmt(-n.y,3),fmt(Math.hypot(n.x-q.x,n.y-q.y),3),r.h?fmt(r.h,3):''].join(';'));});return '﻿'+L.join('\r\n')+'\r\n';}
+const notice=()=>'RELEVE VISITE 360 - '+tour.name+'\r\n\r\nplan.dxf   : contours des pieces, unite = millimetre. Calques MURS_RELEVE, PIECES_TEXTE, POINTS_360.\r\n             Revit : Inserer > Lier CAO (ou Importer CAO), unites d\'importation = millimetre, positionnement origine a origine.\r\n             Tracer ensuite les murs avec l\'outil Mur > Choisir des lignes sur le calque MURS_RELEVE.\r\nreleve.json: memes donnees en metres (murs debut/fin, hauteur sous plafond, points de vue).\r\n             A fournir au connecteur MCP Revit ou a un script Dynamo pour creer les murs automatiquement.\r\nmurs.csv   : tableau des murs (separateur point-virgule).\r\n\r\nLes contours sont releves a la face interieure des murs, au niveau du sol fini.\r\nPrecision indicative : 1 a 3 cm par metre de distance au point vise. A recouper avec une cote de controle.\r\n';
+function crc32(u){let c,crc=-1;for(let i=0;i<u.length;i++){c=(crc^u[i])&255;for(let k=0;k<8;k++)c=c&1?(c>>>1)^0xEDB88320:c>>>1;crc=(crc>>>8)^c;}return(crc^-1)>>>0;}
+function zip(files){const enc=new TextEncoder(),parts=[],cd=[];let off=0;
+  for(const f of files){const name=enc.encode(f.name),data=enc.encode(f.text),crc=crc32(data);
+    const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(12,0x21,true);h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,name.length,true);
+    parts.push(h.buffer,name,data);
+    const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(14,0x21,true);c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,name.length,true);c.setUint32(42,off,true);
+    cd.push(c.buffer,name);off+=30+name.length+data.length;}
+  const cs=cd.reduce((s,b)=>s+b.byteLength,0),e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cs,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...cd,e.buffer],{type:'application/zip'});}
+const files4=()=>[{name:'plan.dxf',text:dxf()},{name:'releve.json',text:releve()},{name:'murs.csv',text:csv()},{name:'LISEZMOI.txt',text:notice()}];
+function renderExport(){const n=tour.rooms.length;$('#exSum').innerHTML=n?'<b>'+n+' pièce'+(n>1?'s':'')+'</b> · '+fmt(tour.rooms.reduce((s,r)=>s+area(r.pts),0))+' m² · '+tour.panos.length+' point'+(tour.panos.length>1?'s':'')+' de vue'+(tour.rooms.some(r=>!r.h)?'<br>Hauteur sous plafond manquante sur au moins une pièce.':''):'Aucune pièce relevée : utilisez « Relevé » pour pointer les angles au sol, puis revenez ici.';
+  $('#bZip').disabled=!n;$('#exAlt').style.display='none';}
+$('#bZip').onclick=async()=>{const base=ascii(tour.name).replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'')||'visite';
+  if(N){try{const b=zip(files4()),b64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(b);});
+      await ncall('saveDownload',['releve-revit-'+base+'.zip',b64]);toast('Enregistré dans Téléchargements/Visite360');}catch(e){toast('Export impossible : '+e.message);}return;}
+  if(!downloads){$('#exTxt').value=dxf();$('#exAlt').style.display='block';return;}
+  try{await downloads.save({filename:'releve-revit-'+base+'.zip',data:zip(files4())});toast('Dossier Revit enregistré');}
+  catch(e){if(e&&e.code==='declined')return;$('#exTxt').value=dxf();$('#exAlt').style.display='block';}};
+$('#bCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('#exTxt').value);toast('DXF copié');}catch(e){$('#exTxt').select();toast('Sélectionné : copiez avec le menu');}};
+
+/* ---------- visites (application) ---------- */
+const newTourId=()=>'v'+Date.now().toString(36);
+const dateName=()=>'Visite du '+new Date().toLocaleDateString('fr-FR');
+function nativeTours(){try{return JSON.parse(N.listTours())||[];}catch(e){return[];}}
+function resetView(){texCache.forEach(pr=>pr.then(t=>t.dispose()).catch(()=>{}));texCache.clear();S.cur=null;S.pending=null;S.draft=null;S.goal=null;if(S.measure)setMeasure(false);mA.visible=mB.visible=false;rebuildOverlay();hud();if(tour.panos.length)jumpTo(tour.panos[0]);else{S.x=S.y=0;}}
+function openTour(id){let d=null;try{const s=N.loadTour(id);if(s)d=JSON.parse(s);}catch(e){}load(d||{});tour.id=id;demo=false;resetView();}
+function renderTours(){const sel=$('#tSel'),ts=nativeTours();if(!ts.some(t=>t.id===tour.id))ts.unshift({id:tour.id,name:tour.name,n:tour.panos.length});
+  sel.innerHTML=ts.map(t=>'<option value="'+esc(t.id)+'"'+(t.id===tour.id?' selected':'')+'>'+esc(t.id===tour.id?tour.name:t.name)+' ('+(t.id===tour.id?tour.panos.length:t.n)+')</option>').join('');}
+$('#tSel').onchange=e=>{if(demo)leaveDemo();saveNow();openTour(e.target.value);renderPhotos();toast('Visite « '+tour.name+' » ouverte');};
+$('#tNew').onclick=()=>{if(demo)leaveDemo();saveNow();const h=tour.camH;tour={name:dateName(),camH:h,panos:[],rooms:[]};tour.id=newTourId();saveNow();resetView();renderPhotos();toast('Nouvelle visite créée : donnez-lui un nom dans Réglages');};
+window.__back=()=>{if($('#sheet').classList.contains('open')){closeSheet();return true;}if(S.measure){setMeasure(false);return true;}return false;};
+
+/* ---------- caméra (application) ---------- */
+const cam={ok:false,busy:false,files:[],info:null,state:{},stitch:null};
+const isJpg=n=>/\.jpe?g$/i.test(n||'');
+const imported=n=>tour.panos.some(p=>p.src===n);
+function renderCam(err){const el=$('#camState');
+  if(!cam.ok){el.innerHTML=err?'<b>Caméra injoignable.</b> '+esc(err):'Caméra non connectée.';$('#cShot').disabled=$('#cAll').disabled=true;return;}
+  const i=cam.info||{},s=cam.state||{},card={pass:'carte OK',noCard:'pas de carte',noSpace:'carte pleine',invalidFormat:'carte à formater',writeProtect:'carte protégée',otherError:'erreur carte'}[s._cardState]||'';
+  el.innerHTML='<b>'+esc((i.manufacturer?i.manufacturer+' ':'')+(i.model||'Caméra'))+'</b> connectée'+(typeof s.batteryLevel==='number'?' · batterie '+Math.round(s.batteryLevel*100)+' %':'')+(card?' · '+card:'')+(i.firmwareVersion?'<br>Firmware '+esc(i.firmwareVersion):'')+
+    '<br>'+(cam.stitch==='ondevice'?'Assemblage dans la caméra : actif.':'Assemblage dans la caméra : à activer sur l\'écran de la X5 si les photos sortent en .insp.');
+  $('#cShot').disabled=cam.busy;$('#cAll').disabled=cam.busy||!cam.files.some(f=>isJpg(f.name)&&!imported(f.name));}
+function renderCamList(){const L=$('#cList');if(!cam.files.length){L.innerHTML='<p class="note">Aucune photo sur la carte.</p>';return;}L.innerHTML='';
+  cam.files.forEach(f=>{const d=document.createElement('div');d.className='item';const ok=isJpg(f.name),imp=imported(f.name);
+    d.innerHTML='<div class="g"><b style="font-weight:500">'+esc(f.name)+'</b><small>'+esc(String(f.dateTimeZone||'').slice(0,16).replace(/^(\d+):(\d+):(\d+)/,'$3/$2/$1'))+(f.size?' · '+fmt(f.size/1048576,1)+' Mo':'')+(f.width?' · '+f.width+'×'+f.height:'')+'</small></div>'+
+      (imp?'<span class="tag">Importée</span>':ok?'<button>Importer</button>':'<span class="tag">Non assemblée</span>');
+    const b=d.querySelector('button');if(b)b.onclick=()=>camImport([f]);L.appendChild(d);});}
+async function camConnect(){if(cam.busy)return;$('#camState').textContent='Recherche de la caméra…';
+  try{cam.info=await osc('GET','/osc/info');try{cam.state=(await osc('POST','/osc/state',{})).state||{};}catch(e){cam.state={};}
+    cam.ok=true;cam.stitch=null;
+    try{const o=(await exec('camera.getOptions',{optionNames:['photoStitchingSupport','photoStitching']})).results.options||{};cam.stitch=o.photoStitching||null;
+      if((o.photoStitchingSupport||[]).includes('ondevice')&&cam.stitch!=='ondevice'){await exec('camera.setOptions',{options:{photoStitching:'ondevice'}});cam.stitch='ondevice';}}catch(e){}
+    renderCam();await camList();
+  }catch(e){cam.ok=false;cam.files=[];renderCam(e.message);}}
+async function camList(){let r=null;for(const mt of [0,null,160]){try{r=await exec('camera.listFiles',{fileType:'image',entryCount:60,maxThumbSize:mt});break;}catch(e){r=null;}}
+  cam.files=((r&&r.results&&r.results.entries)||[]).filter(f=>f&&f.name&&f.fileUrl);renderCamList();renderCam();}
+async function camImport(list){if(cam.busy)return 0;if(demo)leaveDemo();cam.busy=true;renderCam();welcome(false);let ok=0;
+  const maxW=Math.min(maxTex>=8192?6144:4096,maxTex);
+  for(let i=0;i<list.length;i++){const f=list[i],lab='Photo '+(i+1)+'/'+list.length;status(lab+'…');
+    try{const r=JSON.parse(await ncall('fetchPhoto',[f.fileUrl,tour.id,tour.name,f.name,maxW],(a,b)=>status(lab+' : '+(b>0?Math.round(a/b*100)+' %':fmt(a/1048576,1)+' Mo'))));
+      const l=tour.panos[tour.panos.length-1];const p={id:uid(),name:f.name.replace(/\.[^.]+$/,'').slice(0,40),asset:'app:'+r.file,src:f.name,x:l?l.x+3:0,y:l?l.y:0,yaw:0};
+      tour.panos.push(p);ok++;rebuildOverlay();hud();saveNow();if(!S.cur&&!S.pending)jumpTo(p);
+    }catch(e){toast(f.name+' : '+e.message);await sleep(1800);}}
+  status('');cam.busy=false;renderCamList();renderCam();if(ok)toast(ok+' photo'+(ok>1?'s':'')+' ajoutée'+(ok>1?'s':'')+' à la visite');return ok;}
+async function camShot(){if(cam.busy||!cam.ok)return;const delay=+$('#cDelay').value||0;$('#cShot').disabled=true;
+  try{for(let s=delay;s>0;s--){status('Prise de vue dans '+s+' s…');await sleep(1000);}status('Prise de vue…');
+    try{await exec('camera.setOptions',{options:{captureMode:'image'}});}catch(e){}
+    let r=await exec('camera.takePicture');const t0=Date.now();
+    while(r.state==='inProgress'){if(Date.now()-t0>90000)throw new Error('la caméra ne répond plus');await sleep(1000);r=await osc('POST','/osc/commands/status',{id:r.id});if(r.state==='error')throw camErr(r);}
+    const res=r.results||{},url=res.fileUrl||(res._fileGroup||[])[0];if(!url)throw new Error('photo prise, mais fichier introuvable : utilisez la liste');
+    const name=String(url).split('/').pop();status('');
+    if(!isJpg(name))throw new Error('photo prise mais non assemblée ('+name+') : activez l\'assemblage dans la caméra');
+    await camImport([{name,fileUrl:url}]);camList();
+  }catch(e){status('');toast('Caméra : '+e.message);}finally{renderCam();}}
+function camOpen(){renderCam();renderCamList();if(!cam.ok)camConnect();}
+$('#cRefresh').onclick=camConnect;$('#cShot').onclick=camShot;
+$('#cWifi').onclick=()=>{try{N.wifiSettings();}catch(e){}};
+$('#cAll').onclick=()=>camImport(cam.files.filter(f=>isJpg(f.name)&&!imported(f.name)).reverse());
+$('#wCam').onclick=()=>{welcome(false);openSheet('camera');};
+
+/* ---------- démarrage ---------- */
+async function start(){
+  if(!window.THREE){$('#wLoad').textContent='Le moteur 3D n\'a pas pu être chargé. Vérifiez la connexion puis rouvrez la page.';welcome(true);return;}
+  try{init3D();}catch(e){$('#wLoad').textContent='L\'affichage 3D (WebGL) n\'est pas disponible sur cet appareil.';welcome(true);return;}
+  requestAnimationFrame(frame);
+  if(N){document.body.classList.add('native');try{idb=await idbOpen();}catch(e){idb=null;}
+    const ts=nativeTours();if(ts.length)openTour(ts[0].id);else{tour.id=newTourId();tour.name=dateName();hud();rebuildOverlay();}
+    welcome(!tour.panos.length);return;}
+  welcome(true);$('#wLoad').textContent='Chargement de la visite…';$('#wDemo').disabled=$('#wImport').disabled=true;
+  let db=null,assets=null;
+  if(window.claude&&typeof claude.use==='function'){try{[db,assets,downloads]=await Promise.all([claude.use('db'),claude.use('assets'),claude.use('downloads')]);}catch(e){}}
+  if(db){try{const s=await timeout(db.doc('visites/principale').get(),10000);if(s.exists)load(s.data());}catch(e){db=null;$('#wLoad').textContent='';toast('Données en ligne injoignables : mode local');}}
+  if(db&&assets)remote={db,assets};
+  else if(db&&tour.panos.length){remote={db};canEdit=false;document.body.classList.add('ro');}
+  else{try{idb=await idbOpen();const d=await idbGet('kv','tour');if(d)load(d);}catch(e){idb=null;volatile=true;}}
+  $('#wDemo').disabled=$('#wImport').disabled=false;$('#wLoad').textContent='';hud();rebuildOverlay();
+  if(tour.panos.length&&!demo){welcome(false);jumpTo(tour.panos[0]);}
+}
+start();
+</script>
+</body>
+</html>

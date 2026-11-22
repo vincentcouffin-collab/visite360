@@ -1,0 +1,32 @@
+name: APK Visite 360
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compiler l'APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk Visite360.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Visite360-apk
+          path: Visite360.apk
+      - name: Publier l'APK (téléchargeable depuis le téléphone)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "v1.0.${{ github.run_number }}" Visite360.apk --title "Visite 360 – build ${{ github.run_number }}" --notes "APK à installer sur le téléphone."

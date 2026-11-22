@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'fr.betcvc.visite360'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'fr.betcvc.visite360'
+        minSdk 29
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // Meme cle de signature a chaque compilation : les mises a jour s'installent
+    // par-dessus l'ancienne version sans perdre les visites.
+    signingConfigs {
+        betcvc {
+            storeFile file('visite360.jks')
+            storePassword 'visite360'
+            keyAlias 'visite360'
+            keyPassword 'visite360'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.betcvc
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.betcvc
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
