@@ -10,8 +10,8 @@ android {
         applicationId 'fr.betcvc.visite360'
         minSdk 29
         targetSdk 34
-        versionCode 1
-        versionName '1.0'
+        versionCode 2
+        versionName '1.1'
     }
 
     // Meme cle de signature a chaque compilation : les mises a jour s'installent

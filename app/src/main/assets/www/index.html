@@ -40,7 +40,11 @@ input[type=range]{width:100%;accent-color:var(--acc)}
 #mp button{padding:10px 4px;font-size:13px}
 #mpInfo{font-size:13px;color:var(--mut);margin-bottom:7px;min-height:18px}
 #mpInfo b{color:var(--txt)}
-body.measure #ret,body.measure #mp{display:block}
+body.measure #mp{display:block}
+body.measure.manual #ret{display:block}
+#mpAuto{display:grid;grid-template-columns:2.4fr 1fr;gap:6px}#mpProp{display:none;grid-template-columns:1.6fr 1fr;gap:6px}#mpMan{display:none}
+body.manual #mpAuto{display:none}body.manual #mpMan{display:grid}
+body.prop #mpAuto,body.prop #mpMan{display:none}body.prop #mpProp{display:grid}
 #sheet{position:fixed;left:0;right:0;bottom:0;max-height:62%;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;z-index:8;display:none;flex-direction:column;backdrop-filter:blur(8px)}
 #sheet.open{display:flex}
 #sheet header{display:flex;align-items:center;padding:12px 14px 6px}
@@ -94,7 +98,9 @@ ol{padding-left:20px;margin:6px 0}li{margin:5px 0}
 
 <div id="mp">
   <div id="mpInfo"></div>
-  <div class="row">
+  <div id="mpAuto"><button class="pri" id="mAuto">Relevé automatique</button><button id="mMan">Manuel</button></div>
+  <div id="mpProp"><button class="pri" id="mOk">Valider la pièce</button><button id="mNo">Rejeter</button></div>
+  <div class="row" id="mpMan">
     <button class="pri" id="mAdd">＋ Point sol</button>
     <button id="mH">Hauteur</button>
     <button id="mUndo">Annuler</button>
@@ -141,7 +147,7 @@ ol{padding-left:20px;margin:6px 0}li{margin:5px 0}
     </div>
     <div class="sec" id="sec-plan">
       <canvas id="big"></canvas>
-      <p class="note"><span class="ed">Glissez un point pour le placer. </span>Touchez un point pour vous y rendre.</p>
+      <p class="note"><span class="ed">Glissez un point de vue pour le placer, ou un angle de pièce pour le corriger. </span>Touchez un point pour vous y rendre.</p>
       <h3>Pièces relevées</h3>
       <div id="rList"></div>
     </div>
@@ -167,10 +173,10 @@ ol{padding-left:20px;margin:6px 0}li{margin:5px 0}
       </ol>
       <h3>Relevé pour Revit</h3>
       <ol>
-        <li>Vérifiez la hauteur d'objectif (sol → lentille) dans Photos → Réglages : toute la précision en dépend.</li>
-        <li><b>Relevé</b> → visez chaque angle de la pièce au pied du mur avec le viseur, puis « ＋ Point sol ». Zoomez pour viser fin.</li>
-        <li>« Fermer » clôt la pièce. « Hauteur » : visez la jonction mur/plafond d'un mur relevé.</li>
-        <li><b>Revit</b> → téléchargez le dossier.</li>
+        <li>Vérifiez la hauteur d'objectif (sol → lentille) dans Photos → Réglages : toutes les cotes en dépendent.</li>
+        <li>Placez-vous sur le point de vue de la pièce, touchez <b>Relevé</b> puis <b>Relevé automatique</b> : le contour et la hauteur sous plafond sont détectés sur la photo.</li>
+        <li>Le tracé orange s'affiche sur la photo : s'il suit le pied des murs, touchez <b>Valider la pièce</b>. Sinon « Rejeter », puis « Manuel » pour pointer les angles vous-même.</li>
+        <li>Dans <b>Plan</b>, glissez un angle pour le corriger. <b>Revit</b> → téléchargez le dossier.</li>
       </ol>
       <p class="note">Le contour d'une pièce relevée s'affiche en surimpression dans tous les points de vue : servez-vous-en pour caler la position et l'orientation des autres photos. Précision indicative : 1 à 3 cm par mètre de distance au point visé, à condition que le sol soit plan et l'angle visible. À recouper avec une cote au laser.</p>
     </div>
@@ -199,7 +205,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 let tour={name:'Ma visite',camH:1.5,panos:[],rooms:[]};
 let saved=null, demo=false, canEdit=true, remote=null, downloads=null, volatile=false;
-const S={x:0,y:0,yaw:0,pitch:0,fov:75,cur:null,pending:null,goal:null,measure:false,draft:null};
+const S={x:0,y:0,yaw:0,pitch:0,fov:75,cur:null,pending:null,goal:null,measure:false,draft:null,auto:null,manual:false};
 const R=6, LIMIT=3, SPEED=1.7;
 
 /* ---------- application Android ---------- */
@@ -286,6 +292,7 @@ function rebuildOverlay(){
   for(const p of tour.panos){const m=new THREE.Mesh(rg.clone(),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.85,depthTest:false,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.set(p.x,0.02,p.y);m.renderOrder=5;m.userData.pano=p;rings.add(m);}
   const loop=(pts,y,closed,c)=>{const v=pts.map(q=>new THREE.Vector3(q.x,y,q.y));if(closed&&v.length)v.push(v[0].clone());const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints(v),lineMat(c));l.renderOrder=6;lines.add(l);};
   for(const r of tour.rooms){loop(r.pts,0.01,true,0x35d0a5);if(r.h>0){loop(r.pts,r.h,true,0x35d0a5);for(const q of r.pts){const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(q.x,0,q.y),new THREE.Vector3(q.x,r.h,q.y)]),lineMat(0x35d0a5));l.renderOrder=6;lines.add(l);}}}
+  if(S.auto){loop(S.auto.pts,0.01,true,0xffb347);if(S.auto.h>0){loop(S.auto.pts,S.auto.h,true,0xffb347);for(const q of S.auto.pts){const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(q.x,0,q.y),new THREE.Vector3(q.x,S.auto.h,q.y)]),lineMat(0xffb347));l.renderOrder=6;lines.add(l);}}}
   if(S.draft){loop(S.draft.pts,0.01,false,0xffb347);for(const q of S.draft.pts){const m=new THREE.Mesh(new THREE.RingGeometry(0.03,0.07,20),new THREE.MeshBasicMaterial({color:0xffb347,depthTest:false,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.set(q.x,0.015,q.y);m.renderOrder=7;lines.add(m);}}
 }
 
@@ -345,7 +352,7 @@ function hud(){$('#wName').textContent=S.cur?S.cur.name:'—';$('#wSub').textCon
 
 /* ---------- plan ---------- */
 function fitT(w,h){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const add=(x,y)=>{x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);};
-  tour.panos.forEach(p=>add(p.x,p.y));tour.rooms.forEach(r=>r.pts.forEach(q=>add(q.x,q.y)));if(S.draft)S.draft.pts.forEach(q=>add(q.x,q.y));add(S.x,S.y);
+  tour.panos.forEach(p=>add(p.x,p.y));tour.rooms.forEach(r=>r.pts.forEach(q=>add(q.x,q.y)));if(S.draft)S.draft.pts.forEach(q=>add(q.x,q.y));if(S.auto)S.auto.pts.forEach(q=>add(q.x,q.y));add(S.x,S.y);
   const s=Math.min(w/(Math.max(x1-x0,3)+2.5),h/(Math.max(y1-y0,3)+2.5));return{s,ox:w/2-(x0+x1)/2*s,oy:h/2-(y0+y1)/2*s};}
 function drawMap(c,T,big){
   const w=c.clientWidth,h=c.clientHeight,dp=Math.min(devicePixelRatio||1,2);if(!w)return null;
@@ -356,6 +363,7 @@ function drawMap(c,T,big){
   for(const r of tour.rooms){g.beginPath();r.pts.forEach((q,i)=>i?g.lineTo(X(q.x),Y(q.y)):g.moveTo(X(q.x),Y(q.y)));g.closePath();g.fillStyle='#35d0a522';g.fill();g.strokeStyle='#35d0a5';g.lineWidth=big?2:1.5;g.stroke();
     if(big){g.fillStyle='#bfeee0';g.font='11px system-ui';g.textAlign='center';r.pts.forEach((q,i)=>{const n=r.pts[(i+1)%r.pts.length];g.fillText(fmt(Math.hypot(n.x-q.x,n.y-q.y)),X((q.x+n.x)/2),Y((q.y+n.y)/2)-3);});
       const cx=r.pts.reduce((s,q)=>s+q.x,0)/r.pts.length,cy=r.pts.reduce((s,q)=>s+q.y,0)/r.pts.length;g.fillStyle='#e9eef0';g.font='600 12px system-ui';g.fillText(r.name,X(cx),Y(cy));}}
+  if(S.auto){g.beginPath();S.auto.pts.forEach((q,i)=>i?g.lineTo(X(q.x),Y(q.y)):g.moveTo(X(q.x),Y(q.y)));g.closePath();g.strokeStyle='#ffb347';g.lineWidth=2;g.stroke();}
   if(S.draft&&S.draft.pts.length){g.beginPath();S.draft.pts.forEach((q,i)=>i?g.lineTo(X(q.x),Y(q.y)):g.moveTo(X(q.x),Y(q.y)));g.strokeStyle='#ffb347';g.lineWidth=2;g.stroke();g.fillStyle='#ffb347';for(const q of S.draft.pts){g.beginPath();g.arc(X(q.x),Y(q.y),3,0,7);g.fill();}}
   const a=rad(S.fov)*camera.aspect/2,L=big?46:26;g.beginPath();g.moveTo(X(S.x),Y(S.y));g.arc(X(S.x),Y(S.y),L,S.yaw-Math.PI/2-Math.min(a,1.2),S.yaw-Math.PI/2+Math.min(a,1.2));g.closePath();g.fillStyle='#ffffff30';g.fill();
   for(const p of tour.panos){g.beginPath();g.arc(X(p.x),Y(p.y),big?7:4,0,7);g.fillStyle=p===S.cur?'#35d0a5':'#dfe6e9';g.fill();g.strokeStyle='#0e1316';g.lineWidth=1.5;g.stroke();if(big){g.fillStyle='#93a1a8';g.font='11px system-ui';g.textAlign='center';g.fillText(p.name.slice(0,16),X(p.x),Y(p.y)+19);}}
@@ -366,10 +374,11 @@ let bigOpen=false,dragT=null,drag=null;
 const big=$('#big');
 function bigPos(e){const r=big.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
 big.addEventListener('pointerdown',e=>{const T=fitT(big.clientWidth,big.clientHeight),m=bigPos(e);let hit=null,bd=22;for(const p of tour.panos){const d=Math.hypot(p.x*T.s+T.ox-m.x,p.y*T.s+T.oy-m.y);if(d<bd){bd=d;hit=p;}}
+  if(!hit&&canEdit){let vd=18;for(const r of tour.rooms)for(const q of r.pts){const d=Math.hypot(q.x*T.s+T.ox-m.x,q.y*T.s+T.oy-m.y);if(d<vd){vd=d;hit=q;}}if(hit){try{big.setPointerCapture(e.pointerId);}catch(_){}dragT=T;drag={p:hit,vertex:true,sx:m.x,sy:m.y,moved:false};e.preventDefault();}return;}
   if(!hit)return;try{big.setPointerCapture(e.pointerId);}catch(_){}dragT=T;drag={p:hit,sx:m.x,sy:m.y,moved:false};e.preventDefault();});
 big.addEventListener('pointermove',e=>{if(!drag)return;const m=bigPos(e);if(!drag.moved&&Math.hypot(m.x-drag.sx,m.y-drag.sy)<7)return;if(!canEdit)return;drag.moved=true;
   drag.p.x=(m.x-dragT.ox)/dragT.s;drag.p.y=(m.y-dragT.oy)/dragT.s;if(drag.p===S.cur){place(mA,drag.p);S.x=drag.p.x;S.y=drag.p.y;}});
-const bigEnd=()=>{if(!drag)return;const d=drag;drag=null;dragT=null;if(d.moved){rebuildOverlay();touch();}else jumpTo(d.p);};
+const bigEnd=()=>{if(!drag)return;const d=drag;drag=null;dragT=null;if(d.moved){rebuildOverlay();touch();if(d.vertex)renderRooms();}else if(!d.vertex)jumpTo(d.p);};
 big.addEventListener('pointerup',bigEnd);big.addEventListener('pointercancel',bigEnd);
 $('#mini').addEventListener('click',()=>openSheet('plan'));
 
@@ -378,11 +387,14 @@ const area=pts=>Math.abs(pts.reduce((s,q,i)=>{const n=pts[(i+1)%pts.length];retu
 const perim=pts=>pts.reduce((s,q,i)=>{const n=pts[(i+1)%pts.length];return s+Math.hypot(n.x-q.x,n.y-q.y);},0);
 function setMeasure(on){
   if(on&&!tour.panos.length){toast('Importez d\'abord une photo 360');return;}
-  S.measure=on;document.body.classList.toggle('measure',on);$('#bMeasure').classList.toggle('on',on);$('#sL').classList.toggle('off',on);
-  if(on){closeSheet();if(S.cur)S.goal={x:S.cur.x,y:S.cur.y};if(S.fov>60)setFov(55);}
+  S.measure=on;S.manual=false;S.auto=null;document.body.classList.toggle('measure',on);document.body.classList.remove('manual','prop');$('#bMeasure').classList.toggle('on',on);$('#sL').classList.toggle('off',on);
+  rebuildOverlay();if(on){closeSheet();if(S.cur)S.goal={x:S.cur.x,y:S.cur.y};}
 }
 function aimDist(){return S.pitch<-rad(1.5)?tour.camH/Math.tan(-S.pitch):null;}
-function mpInfo(){const d=aimDist(),n=S.draft?S.draft.pts.length:0;let t='Visée : '+(d&&d<30?'<b>'+fmt(d)+' m</b> au sol':'visez le sol');
+function mpInfo(){
+  if(S.auto){const a=S.auto;$('#mpInfo').innerHTML='<b>'+a.pts.length+' murs · '+fmt(area(a.pts),1)+' m²'+(a.h?' · HSP '+fmt(a.h)+' m':'')+'</b><br>Le tracé orange doit suivre le pied des murs'+(a.resid>0.12?' (détection incertaine, vérifiez bien)':'')+'.';return;}
+  if(!S.manual){$('#mpInfo').innerHTML='Placez-vous sur le point de vue de la pièce, puis lancez le relevé.';return;}
+  const d=aimDist(),n=S.draft?S.draft.pts.length:0;let t='Visée : '+(d&&d<30?'<b>'+fmt(d)+' m</b> au sol':'visez le sol');
   if(n){const l=S.draft.pts[n-1];if(d&&d<30){const q=aimPt();t+=' · côté <b>'+fmt(Math.hypot(q.x-l.x,q.y-l.y))+' m</b>';}t+=' · '+n+' point'+(n>1?'s':'');}
   $('#mpInfo').innerHTML=t;}
 function aimPt(){const t=aimDist();return{x:S.x+Math.sin(S.yaw)*t,y:S.y-Math.cos(S.yaw)*t};}
@@ -400,6 +412,115 @@ $('#mH').onclick=()=>{snap();const tgt=S.draft&&S.draft.pts.length>1?S.draft:tou
   if(best===null)return toast('Visez un mur déjà relevé');
   tgt.h=+(tour.camH+best*Math.tan(S.pitch)).toFixed(3);rebuildOverlay();touch();toast('Hauteur sous plafond : '+fmt(tgt.h)+' m');};
 $('#bMeasure').onclick=()=>setMeasure(!S.measure);
+$('#mMan').onclick=()=>{S.manual=true;document.body.classList.add('manual');if(S.fov>60)setFov(55);};
+$('#mAuto').onclick=()=>{if(!S.cur)return toast('Aucune photo affichée');snap();status('Analyse de la photo…');
+  setTimeout(()=>{try{S.auto=autoLayout(S.cur);document.body.classList.add('prop');rebuildOverlay();}catch(e){toast('Relevé automatique : '+e.message+'. Essayez « Manuel ».');}status('');},60);};
+$('#mNo').onclick=()=>{S.auto=null;document.body.classList.remove('prop');rebuildOverlay();};
+$('#mOk').onclick=()=>{if(!S.auto)return;const r={id:uid(),name:'Pièce '+(tour.rooms.length+1),h:S.auto.h||0,pts:S.auto.pts};tour.rooms.push(r);S.auto=null;document.body.classList.remove('prop');rebuildOverlay();touch();
+  toast(r.name+' enregistrée : '+fmt(area(r.pts))+' m²'+(r.h?' · HSP '+fmt(r.h)+' m':''));};
+/* ---------- relevé automatique ---------- */
+function medianOf(a){const b=Array.from(a).sort((x,y)=>x-y);return b.length?b[b.length>>1]:0;}
+function fitManhattan(P){
+  const n=P.length,hist=new Float32Array(90);
+  for(let i=0;i<n;i++){const a=P[i],b=P[(i+3)%n],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy);if(l<0.01||l>0.8)continue;hist[Math.round(((deg(Math.atan2(dy,dx))%90)+90)%90)%90]+=1;}
+  let best=0,bv=-1;const sm=new Float32Array(90);for(let i=0;i<90;i++){let s=0;for(let k=-3;k<=3;k++)s+=hist[(i+k+90)%90]*(4-Math.abs(k));sm[i]=s;if(s>bv){bv=s;best=i;}}
+  let sw=0,sa=0;for(let k=-4;k<=4;k++){const w=hist[(best+k+90)%90];sw+=w;sa+=w*k;}
+  const al=rad(best+(sw?sa/sw:0)),ca=Math.cos(al),sn=Math.sin(al);
+  const Q=P.map(p=>({x:p.x*ca+p.y*sn,y:-p.x*sn+p.y*ca}));
+  let lab=new Uint8Array(n);for(let i=0;i<n;i++){const a=Q[(i-2+n)%n],b=Q[(i+2)%n];lab[i]=Math.abs(b.x-a.x)>=Math.abs(b.y-a.y)?0:1;}
+  for(let pass=0;pass<2;pass++){const l2=new Uint8Array(n);for(let i=0;i<n;i++){let s=0;for(let k=-3;k<=3;k++)s+=lab[(i+k+n)%n];l2[i]=s>=4?1:0;}lab=l2;}
+  let s0=-1;for(let i=0;i<n;i++)if(lab[i]!==lab[(i-1+n)%n]){s0=i;break;}
+  if(s0<0)return null;
+  // murs : suites de colonnes de même orientation, découpées aux sauts de profondeur
+  let walls=[];
+  for(let t=0;t<n;){const i=(s0+t)%n,l=lab[i];let len=1;while(t+len<n&&lab[(s0+t+len)%n]===l)len++;
+    let cur=[];const flush=()=>{if(cur.length>=3){const v=cur.map(j=>l?Q[j].x:Q[j].y);walls.push({lab:l,c:medianOf(v),idx:cur.slice()});}cur=[];};
+    for(let k=0;k<len;k++){const j=(s0+t+k)%n,v=l?Q[j].x:Q[j].y;
+      if(cur.length>=3){const m=medianOf(cur.slice(-9).map(q=>l?Q[q].x:Q[q].y));if(Math.abs(v-m)>0.22){let ok=0;for(let q=1;q<=3&&k+q<len;q++){const jj=(s0+t+k+q)%n;if(Math.abs((l?Q[jj].x:Q[jj].y)-v)<0.15)ok++;}if(ok>=2){flush();}else continue;}}
+      cur.push(j);}
+    flush();t+=len;}
+  // fusion des murs alignés consécutifs
+  for(let ch=true;ch&&walls.length>2;){ch=false;for(let i=0;i<walls.length;i++){const a=walls[i],b=walls[(i+1)%walls.length];if(a!==b&&a.lab===b.lab&&Math.abs(a.c-b.c)<0.15){a.idx=a.idx.concat(b.idx);a.c=medianOf(a.idx.map(j=>a.lab?Q[j].x:Q[j].y));walls.splice((i+1)%walls.length,1);ch=true;break;}}}
+  if(walls.length<4)return null;
+  const V=[];
+  for(let i=0;i<walls.length;i++){const a=walls[i],b=walls[(i+1)%walls.length];
+    if(a.lab!==b.lab)V.push(a.lab?{x:a.c,y:b.c}:{x:b.c,y:a.c});
+    else{const ea=Q[a.idx[a.idx.length-1]],eb=Q[b.idx[0]],e=Math.hypot(ea.x,ea.y)<Math.hypot(eb.x,eb.y)?ea:eb;
+      if(a.lab){V.push({x:a.c,y:e.y},{x:b.c,y:e.y});}else{V.push({x:e.x,y:a.c},{x:e.x,y:b.c});}}}
+  const out=[];for(const v of V){const l=out[out.length-1];if(!l||Math.hypot(l.x-v.x,l.y-v.y)>0.05)out.push(v);}
+  if(out.length>1&&Math.hypot(out[0].x-out[out.length-1].x,out[0].y-out[out.length-1].y)<0.05)out.pop();
+  if(out.length<4||out.length>24)return null;
+  return out.map(v=>({x:v.x*ca-v.y*sn,y:v.x*sn+v.y*ca}));
+}
+function simplifyLoop(P,tol){
+  const rdp=(a,b,pts,res)=>{let md=0,mi=-1;const A=pts[a],B=pts[b],dx=B.x-A.x,dy=B.y-A.y,l=Math.hypot(dx,dy)||1e-9;for(let i=a+1;i<b;i++){const d=Math.abs((pts[i].x-A.x)*dy-(pts[i].y-A.y)*dx)/l;if(d>md){md=d;mi=i;}}if(md>tol){rdp(a,mi,pts,res);res.push(pts[mi]);rdp(mi,b,pts,res);}};
+  let far=0,fd=0;for(let i=0;i<P.length;i++){const d=Math.hypot(P[i].x,P[i].y);if(d>fd){fd=d;far=i;}}
+  const R=P.slice(far).concat(P.slice(0,far)),mid=R.length>>1,res=[R[0]];rdp(0,mid,R,res);res.push(R[mid]);rdp(mid,R.length-1,R,res);return res;
+}
+const inPoly=(pts,x,y)=>{let c=false;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j];if((a.y>y)!==(b.y>y)&&x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x)c=!c;}return c;};
+function edgeDist(pts,p){let m=1e9;for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length],dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy||1e-9;let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/l2;t=clamp(t,0,1);m=Math.min(m,Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy));}return m;}
+function autoLayout(p){
+  const tex=mA.material.map,img=tex&&tex.image;if(!img||S.cur!==p||mA.userData.id!==p.id)throw new Error('la photo est encore en cours de chargement');
+  const W=2048,H=1024,NC=360,camH=tour.camH,N=W*H;
+  const c2=document.createElement('canvas');c2.width=W;c2.height=H;const g=c2.getContext('2d',{willReadFrequently:true});g.drawImage(img,0,0,W,H);
+  let px;try{px=g.getImageData(0,0,W,H).data;}catch(e){throw new Error('image illisible');}
+  const Lm=new Float32Array(N),Cr=new Float32Array(N),Cg=new Float32Array(N);
+  for(let i=0,j=0;i<N;i++,j+=4){const r=px[j],gg=px[j+1],b=px[j+2],s=r+gg+b+1;Lm[i]=(0.299*r+0.587*gg+0.114*b)/255;Cr[i]=r/s;Cg[i]=gg/s;}
+  px=null;c2.width=c2.height=1;
+  // modèles de couleur : sol (sous la caméra) et plafond (au-dessus)
+  const model=(ya,yb)=>{const a=[],b=[],c=[];for(let y=ya;y<yb;y+=3)for(let x=0;x<W;x+=5){const i=y*W+x;a.push(Lm[i]);b.push(Cr[i]);c.push(Cg[i]);}
+    const st=v=>{const m=medianOf(v);return[m,medianOf(v.map(q=>Math.abs(q-m)))*1.4826];};const A=st(a),B=st(b),C=st(c);
+    return{mL:A[0],sL:Math.max(A[1]*2.5,0.13),mr:B[0],sr:Math.max(B[1]*2.5,0.022),mg:C[0],sg:Math.max(C[1]*2.5,0.022)};};
+  const fm=model(H*0.80|0,H*0.92|0),cm=model(H*0.07|0,H*0.19|0);
+  const like=(m,i)=>{const a=(Lm[i]-m.mL)/m.sL,b=(Cr[i]-m.mr)/m.sr,c=(Cg[i]-m.mg)/m.sg;return Math.exp(-(a*a+b*b+c*c)/2);};
+  // cartes par colonne d'azimut : contours horizontaux, ressemblance sol / plafond
+  const E=new Float32Array(NC*H),FL=new Float32Array(NC*H),CL=new Float32Array(NC*H);
+  for(let c=0;c<NC;c++){const x0=Math.floor(c*W/NC),x1=Math.max(x0+1,Math.floor((c+1)*W/NC)),nx=x1-x0;
+    // contour = marche de luminosité entre deux bandes de 6 lignes (ignore les traits fins : joints de dalles, carrelage)
+    const pm=new Float32Array(H+1),EW=6;
+    for(let y=0;y<H;y++){let m=0,f=0,cl=0;for(let x=x0;x<x1;x++){const i=y*W+x;m+=Lm[i];if(y>H/2)f+=like(fm,i);else cl+=like(cm,i);}pm[y+1]=pm[y]+m/nx;FL[c*H+y]=f/nx;CL[c*H+y]=cl/nx;}
+    for(let y=EW;y<H-EW-1;y++)E[c*H+y]=Math.abs((pm[y+1+EW]-pm[y+1])-(pm[y]-pm[y-EW]))/EW;}
+  const pct=(ya,yb)=>{const v=[];for(let c=0;c<NC;c+=3)for(let y=ya;y<yb;y+=2)v.push(E[c*H+y]);v.sort((a,b)=>a-b);return v[Math.floor(v.length*0.97)]||1e-3;};
+  const nf=pct(H*0.52|0,H*0.92|0),nc=pct(H*0.08|0,H*0.48|0),B=12;
+  const Sf=new Float32Array(NC*H),Sc=new Float32Array(NC*H),pf=new Float32Array(H+1);
+  for(let c=0;c<NC;c++){const o=c*H;
+    pf[0]=0;for(let y=0;y<H;y++)pf[y+1]=pf[y]+FL[o+y];
+    for(let y=(H>>1)+B;y<H-B-1;y++){const below=(pf[y+1+B]-pf[y+1])/B,tr=below-(pf[y]-pf[y-B])/B;Sf[o+y]=Math.min(E[o+y]/nf,1.5)*(0.25+0.75*below)+1.6*Math.max(0,tr);}
+    pf[0]=0;for(let y=0;y<H;y++)pf[y+1]=pf[y]+CL[o+y];
+    for(let y=B+1;y<(H>>1)-B;y++){const above=(pf[y]-pf[y-B])/B,tr=above-(pf[y+1+B]-pf[y+1])/B;Sc[o+y]=Math.min(E[o+y]/nc,1.5)*(0.25+0.75*above)+1.6*Math.max(0,tr);}}
+  const rowOf=e=>(0.5-e/Math.PI)*H-0.5,elOf=y=>Math.PI/2-(y+0.5)/H*Math.PI;
+  const y0=Math.ceil(rowOf(-Math.atan(camH/22))),y1=Math.floor(rowOf(-Math.atan(camH/0.6))),nS=y1-y0+1,tf=new Float32Array(nS);
+  for(let s=0;s<nS;s++)tf[s]=Math.tan(-elOf(y0+s));
+  const yc=new Float32Array(nS),setK=k=>{for(let s=0;s<nS;s++)yc[s]=rowOf(Math.atan(k*tf[s]));};
+  const scAt=(o,y)=>{if(y<B+1)return 0;const a=y|0,f=y-a;return Sc[o+a]*(1-f)+Sc[o+a+1]*f;};
+  // un pied de mur sans plafond correspondant (meuble, plinthe, allège) compte moins qu'un plafond seul
+  const comb=(sf,sc)=>2*sc+sf*(0.35+0.65*Math.min(1,sc/0.8));
+  // hauteur sous plafond : rapport k qui aligne le mieux pied de mur et plafond
+  let bk=0.8,bs=-1;for(let k=0.25;k<=2.61;k+=0.02){setK(k);let tot=0;for(let c=0;c<NC;c+=3){const o=c*H;let m=0;for(let s=0;s<nS;s++){const v=comb(Sf[o+y0+s],scAt(o,yc[s]));if(v>m)m=v;}tot+=m;}if(tot>bs){bs=tot;bk=k;}}
+  for(let k=bk-0.02;k<=bk+0.021;k+=0.004){setK(k);let tot=0;for(let c=0;c<NC;c++){const o=c*H;let m=0;for(let s=0;s<nS;s++){const v=comb(Sf[o+y0+s],scAt(o,yc[s]));if(v>m)m=v;}tot+=m;}if(tot>bs){bs=tot;bk=k;}}
+  setK(bk);
+  // tracé continu du pied de mur sur 360° (programmation dynamique, deux tours)
+  const SC=new Float32Array(NC*nS);for(let c=0;c<NC;c++){const o=c*H;for(let s=0;s<nS;s++)SC[c*nS+s]=comb(Sf[o+y0+s],scAt(o,yc[s]));}
+  const T=NC*2,RW=16,LAM=0.035,J=1.6,D=new Float32Array(T*nS),bp=new Int16Array(T*nS);
+  for(let s=0;s<nS;s++)D[s]=-SC[s];
+  for(let t=1;t<T;t++){const c=t%NC,po=(t-1)*nS,oo=t*nS;let gm=1e9,gi=0;for(let s=0;s<nS;s++)if(D[po+s]<gm){gm=D[po+s];gi=s;}
+    for(let s=0;s<nS;s++){let m=gm+J,mi=gi;const a=Math.max(0,s-RW),b=Math.min(nS-1,s+RW);for(let q=a;q<=b;q++){const v=D[po+q]+LAM*Math.abs(q-s);if(v<m){m=v;mi=q;}}D[oo+s]=m-SC[c*nS+s];bp[oo+s]=mi;}}
+  let e=0,em=1e9;for(let s=0;s<nS;s++)if(D[(T-1)*nS+s]<em){em=D[(T-1)*nS+s];e=s;}
+  const path=new Int16Array(NC);for(let t=T-1;t>=NC;t--){path[t-NC]=e;e=bp[t*nS+e];}
+  const ro=-Math.PI/2-rad(p.yaw),cr=Math.cos(ro),sr=Math.sin(ro),P=[];let sF=0,sC=0;
+  for(let c=0;c<NC;c++){const s=path[c],o=c*nS;let sub=0;if(s>0&&s<nS-1){const a=SC[o+s-1],b=SC[o+s],d=SC[o+s+1],den=a-2*b+d;if(den<0)sub=clamp(0.5*(a-d)/den,-0.5,0.5);}
+    const dist=camH/Math.tan(-elOf(y0+s+sub)),u=(c+0.5)/NC*2*Math.PI,lx=Math.cos(u),lz=Math.sin(u);
+    P.push({x:(lx*cr+lz*sr)*dist,y:(-lx*sr+lz*cr)*dist});sF+=Sf[c*H+y0+s];sC+=scAt(c*H,yc[s]);}
+  // filtre médian circulaire sur les distances (points isolés)
+  const rd=P.map(q=>Math.hypot(q.x,q.y)),P2=P.map((q,i)=>{const w=[];for(let k=-2;k<=2;k++)w.push(rd[(i+k+NC)%NC]);const m=medianOf(w),r=rd[i]||1;return Math.abs(r-m)>0.25?{x:q.x*m/r,y:q.y*m/r}:q;});
+  let pts=fitManhattan(P2),kind='équerre';
+  const resid=v=>P2.reduce((s,q)=>s+Math.min(edgeDist(v,q),1),0)/NC;
+  if(!pts||!inPoly(pts,0,0)||area(pts)<1.2||resid(pts)>0.22){pts=simplifyLoop(P2,0.12);kind='libre';}
+  if(!pts||pts.length<3||area(pts)<1.2||!inPoly(pts,0,0))throw new Error('contour de pièce non reconnu sur cette photo');
+  const r=resid(pts),h=sC>0.25*sF?+(camH*(1+bk)).toFixed(2):0;
+  return{pts:pts.map(q=>({x:+(q.x+p.x).toFixed(3),y:+(q.y+p.y).toFixed(3)})),h,kind,resid:r};
+}
+
 
 /* ---------- panneaux ---------- */
 const titles={camera:'Caméra Insta360',photos:'Photos 360',plan:'Plan de la visite',export:'Export Revit',aide:'Mode d\'emploi'};
