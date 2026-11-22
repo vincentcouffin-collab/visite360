@@ -146,8 +146,9 @@ ol{padding-left:20px;margin:6px 0}li{margin:5px 0}
       </div>
     </div>
     <div class="sec" id="sec-plan">
+      <button class="pri ed" id="bPlace" style="width:100%;margin-bottom:8px">Placement automatique des points</button>
       <canvas id="big"></canvas>
-      <p class="note"><span class="ed">Glissez un point de vue pour le placer, ou un angle de pièce pour le corriger. </span>Touchez un point pour vous y rendre.</p>
+      <p class="note"><span class="ed">Glissez une pièce pour la déplacer avec ses points, un point de vue pour le placer, un angle pour le corriger. </span>Touchez un point pour vous y rendre.</p>
       <h3>Pièces relevées</h3>
       <div id="rList"></div>
     </div>
@@ -168,8 +169,9 @@ ol{padding-left:20px;margin:6px 0}li{margin:5px 0}
       <h3>Construire la visite</h3>
       <ol>
         <li>Dans l'app Insta360, exportez vos photos en JPG 360 (pas le fichier .insp brut).</li>
-        <li><b>Photos</b> → importez-les. Elles sont alignées tous les 3 m par défaut.</li>
-        <li><b>Plan</b> → glissez chaque point à sa vraie position. <b>Photos</b> → réglez l'orientation du point en cours.</li>
+        <li><b>Photos</b> → importez-les. </li>
+        <li>Après l'import, le <b>placement automatique</b> reconnaît la pièce de chaque photo : les points d'une même pièce sont positionnés et orientés entre eux, et les pièces sont posées côte à côte.</li>
+        <li><b>Plan</b> → glissez chaque pièce à sa vraie place (bouton « Pivoter » pour la tourner d'un quart de tour). Un point mal placé se glisse à la main.</li>
       </ol>
       <h3>Relevé pour Revit</h3>
       <ol>
@@ -231,10 +233,10 @@ function idbDo(store,mode,fn){return new Promise((res,rej)=>{if(!idb)return rej(
 const idbGet=(s,k)=>idbDo(s,'readonly',o=>o.get(k)), idbPut=(s,k,v)=>idbDo(s,'readwrite',o=>o.put(v,k)), idbDel=(s,k)=>idbDo(s,'readwrite',o=>o.delete(k));
 
 function serial(){return{name:tour.name,camH:tour.camH,
-  panos:tour.panos.map(p=>({id:p.id,name:p.name,asset:p.asset,src:p.src||'',x:+p.x.toFixed(3),y:+p.y.toFixed(3),yaw:p.yaw})),
+  panos:tour.panos.map(p=>({id:p.id,name:p.name,asset:p.asset,src:p.src||'',placed:!!p.placed,x:+p.x.toFixed(3),y:+p.y.toFixed(3),yaw:p.yaw})),
   rooms:tour.rooms.map(r=>({id:r.id,name:r.name,h:r.h||0,pts:r.pts.map(q=>({x:+q.x.toFixed(3),y:+q.y.toFixed(3)}))}))};}
 function load(d){d=JSON.parse(JSON.stringify(d||{}));tour={name:d.name||'Ma visite',camH:+d.camH||1.5,
-  panos:(d.panos||[]).filter(p=>p&&p.asset).map(p=>({id:p.id||uid(),name:String(p.name||'Point'),asset:String(p.asset),src:String(p.src||''),x:+p.x||0,y:+p.y||0,yaw:+p.yaw||0})),
+  panos:(d.panos||[]).filter(p=>p&&p.asset).map(p=>({id:p.id||uid(),name:String(p.name||'Point'),asset:String(p.asset),src:String(p.src||''),placed:!!p.placed,x:+p.x||0,y:+p.y||0,yaw:+p.yaw||0})),
   rooms:(d.rooms||[]).filter(r=>r&&Array.isArray(r.pts)).map(r=>({id:r.id||uid(),name:String(r.name||'Pièce'),h:+r.h||0,pts:r.pts.map(q=>({x:+q.x||0,y:+q.y||0}))}))};}
 let saveT=null, chain=Promise.resolve();
 function touch(){if(demo||!canEdit)return;clearTimeout(saveT);saveT=setTimeout(saveNow,600);}
@@ -374,13 +376,17 @@ let bigOpen=false,dragT=null,drag=null;
 const big=$('#big');
 function bigPos(e){const r=big.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
 big.addEventListener('pointerdown',e=>{const T=fitT(big.clientWidth,big.clientHeight),m=bigPos(e);let hit=null,bd=22;for(const p of tour.panos){const d=Math.hypot(p.x*T.s+T.ox-m.x,p.y*T.s+T.oy-m.y);if(d<bd){bd=d;hit=p;}}
-  if(!hit&&canEdit){let vd=18;for(const r of tour.rooms)for(const q of r.pts){const d=Math.hypot(q.x*T.s+T.ox-m.x,q.y*T.s+T.oy-m.y);if(d<vd){vd=d;hit=q;}}if(hit){try{big.setPointerCapture(e.pointerId);}catch(_){}dragT=T;drag={p:hit,vertex:true,sx:m.x,sy:m.y,moved:false};e.preventDefault();}return;}
+  if(!hit&&canEdit){let vd=18;for(const r of tour.rooms)for(const q of r.pts){const d=Math.hypot(q.x*T.s+T.ox-m.x,q.y*T.s+T.oy-m.y);if(d<vd){vd=d;hit=q;}}if(hit){try{big.setPointerCapture(e.pointerId);}catch(_){}dragT=T;drag={p:hit,vertex:true,sx:m.x,sy:m.y,moved:false};e.preventDefault();return;}
+    const wx=(m.x-T.ox)/T.s,wy=(m.y-T.oy)/T.s,rm=tour.rooms.find(r=>inPoly(r.pts,wx,wy));
+    if(rm){try{big.setPointerCapture(e.pointerId);}catch(_){}dragT=T;drag={room:rm,mem:roomMembers(rm),lx:wx,ly:wy,sx:m.x,sy:m.y,moved:false};e.preventDefault();}return;}
   if(!hit)return;try{big.setPointerCapture(e.pointerId);}catch(_){}dragT=T;drag={p:hit,sx:m.x,sy:m.y,moved:false};e.preventDefault();});
 big.addEventListener('pointermove',e=>{if(!drag)return;const m=bigPos(e);if(!drag.moved&&Math.hypot(m.x-drag.sx,m.y-drag.sy)<7)return;if(!canEdit)return;drag.moved=true;
-  drag.p.x=(m.x-dragT.ox)/dragT.s;drag.p.y=(m.y-dragT.oy)/dragT.s;if(drag.p===S.cur){place(mA,drag.p);S.x=drag.p.x;S.y=drag.p.y;}});
-const bigEnd=()=>{if(!drag)return;const d=drag;drag=null;dragT=null;if(d.moved){rebuildOverlay();touch();if(d.vertex)renderRooms();}else if(!d.vertex)jumpTo(d.p);};
+  if(drag.room){const wx=(m.x-dragT.ox)/dragT.s,wy=(m.y-dragT.oy)/dragT.s,dx=wx-drag.lx,dy=wy-drag.ly;drag.lx=wx;drag.ly=wy;drag.room.pts.forEach(q=>{q.x+=dx;q.y+=dy;});drag.mem.forEach(p=>{p.x+=dx;p.y+=dy;});if(S.cur&&drag.mem.includes(S.cur)){place(mA,S.cur);S.x=S.cur.x;S.y=S.cur.y;}return;}
+  drag.p.x=(m.x-dragT.ox)/dragT.s;drag.p.y=(m.y-dragT.oy)/dragT.s;if(!drag.vertex)drag.p.placed=true;if(drag.p===S.cur){place(mA,drag.p);S.x=drag.p.x;S.y=drag.p.y;}});
+const bigEnd=()=>{if(!drag)return;const d=drag;drag=null;dragT=null;if(d.moved){rebuildOverlay();touch();if(d.vertex)renderRooms();}else if(d.p&&!d.vertex)jumpTo(d.p);};
 big.addEventListener('pointerup',bigEnd);big.addEventListener('pointercancel',bigEnd);
 $('#mini').addEventListener('click',()=>openSheet('plan'));
+$('#bPlace').onclick=()=>autoPlace(false);
 
 /* ---------- relevé ---------- */
 const area=pts=>Math.abs(pts.reduce((s,q,i)=>{const n=pts[(i+1)%pts.length];return s+q.x*n.y-n.x*q.y;},0))/2;
@@ -416,7 +422,7 @@ $('#mMan').onclick=()=>{S.manual=true;document.body.classList.add('manual');if(S
 $('#mAuto').onclick=()=>{if(!S.cur)return toast('Aucune photo affichée');snap();status('Analyse de la photo…');
   setTimeout(()=>{try{S.auto=autoLayout(S.cur);document.body.classList.add('prop');rebuildOverlay();}catch(e){toast('Relevé automatique : '+e.message+'. Essayez « Manuel ».');}status('');},60);};
 $('#mNo').onclick=()=>{S.auto=null;document.body.classList.remove('prop');rebuildOverlay();};
-$('#mOk').onclick=()=>{if(!S.auto)return;const r={id:uid(),name:'Pièce '+(tour.rooms.length+1),h:S.auto.h||0,pts:S.auto.pts};tour.rooms.push(r);S.auto=null;document.body.classList.remove('prop');rebuildOverlay();touch();
+$('#mOk').onclick=()=>{if(!S.auto)return;const r={id:uid(),name:'Pièce '+(tour.rooms.length+1),h:S.auto.h||0,pts:S.auto.pts};tour.rooms.push(r);if(S.cur)S.cur.placed=true;S.auto=null;document.body.classList.remove('prop');rebuildOverlay();touch();
   toast(r.name+' enregistrée : '+fmt(area(r.pts))+' m²'+(r.h?' · HSP '+fmt(r.h)+' m':''));};
 /* ---------- relevé automatique ---------- */
 function medianOf(a){const b=Array.from(a).sort((x,y)=>x-y);return b.length?b[b.length>>1]:0;}
@@ -459,8 +465,9 @@ function simplifyLoop(P,tol){
 }
 const inPoly=(pts,x,y)=>{let c=false;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j];if((a.y>y)!==(b.y>y)&&x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x)c=!c;}return c;};
 function edgeDist(pts,p){let m=1e9;for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length],dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy||1e-9;let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/l2;t=clamp(t,0,1);m=Math.min(m,Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy));}return m;}
-function autoLayout(p){
-  const tex=mA.material.map,img=tex&&tex.image;if(!img||S.cur!==p||mA.userData.id!==p.id)throw new Error('la photo est encore en cours de chargement');
+function autoLayout(p){const tex=mA.material.map,img=tex&&tex.image;if(!img||S.cur!==p||mA.userData.id!==p.id)throw new Error('la photo est encore en cours de chargement');
+  const r=layoutFromImage(img,p.yaw);r.pts=r.pts.map(q=>({x:+(q.x+p.x).toFixed(3),y:+(q.y+p.y).toFixed(3)}));return r;}
+function layoutFromImage(img,yawDeg){
   const W=2048,H=1024,NC=360,camH=tour.camH,N=W*H;
   const c2=document.createElement('canvas');c2.width=W;c2.height=H;const g=c2.getContext('2d',{willReadFrequently:true});g.drawImage(img,0,0,W,H);
   let px;try{px=g.getImageData(0,0,W,H).data;}catch(e){throw new Error('image illisible');}
@@ -507,7 +514,7 @@ function autoLayout(p){
     for(let s=0;s<nS;s++){let m=gm+J,mi=gi;const a=Math.max(0,s-RW),b=Math.min(nS-1,s+RW);for(let q=a;q<=b;q++){const v=D[po+q]+LAM*Math.abs(q-s);if(v<m){m=v;mi=q;}}D[oo+s]=m-SC[c*nS+s];bp[oo+s]=mi;}}
   let e=0,em=1e9;for(let s=0;s<nS;s++)if(D[(T-1)*nS+s]<em){em=D[(T-1)*nS+s];e=s;}
   const path=new Int16Array(NC);for(let t=T-1;t>=NC;t--){path[t-NC]=e;e=bp[t*nS+e];}
-  const ro=-Math.PI/2-rad(p.yaw),cr=Math.cos(ro),sr=Math.sin(ro),P=[];let sF=0,sC=0;
+  const ro=-Math.PI/2-rad(yawDeg),cr=Math.cos(ro),sr=Math.sin(ro),P=[];let sF=0,sC=0;
   for(let c=0;c<NC;c++){const s=path[c],o=c*nS;let sub=0;if(s>0&&s<nS-1){const a=SC[o+s-1],b=SC[o+s],d=SC[o+s+1],den=a-2*b+d;if(den<0)sub=clamp(0.5*(a-d)/den,-0.5,0.5);}
     const dist=camH/Math.tan(-elOf(y0+s+sub)),u=(c+0.5)/NC*2*Math.PI,lx=Math.cos(u),lz=Math.sin(u);
     P.push({x:(lx*cr+lz*sr)*dist,y:(-lx*sr+lz*cr)*dist});sF+=Sf[c*H+y0+s];sC+=scAt(c*H,yc[s]);}
@@ -518,8 +525,66 @@ function autoLayout(p){
   if(!pts||!inPoly(pts,0,0)||area(pts)<1.2||resid(pts)>0.22){pts=simplifyLoop(P2,0.12);kind='libre';}
   if(!pts||pts.length<3||area(pts)<1.2||!inPoly(pts,0,0))throw new Error('contour de pièce non reconnu sur cette photo');
   const r=resid(pts),h=sC>0.25*sF?+(camH*(1+bk)).toFixed(2):0;
-  return{pts:pts.map(q=>({x:+(q.x+p.x).toFixed(3),y:+(q.y+p.y).toFixed(3)})),h,kind,resid:r};
+  return{pts,h,kind,resid:r};
 }
+/* ---------- placement automatique des points de vue ---------- */
+const rot2=(pts,t)=>{const c=Math.cos(t),s=Math.sin(t);return pts.map(q=>({x:q.x*c-q.y*s,y:q.x*s+q.y*c}));};
+function axisAngle(pts){let bl=0,ba=0;for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length],l=Math.hypot(b.x-a.x,b.y-a.y);if(l>bl){bl=l;ba=Math.atan2(b.y-a.y,b.x-a.x);}}return ba;}
+function centroid(pts){let A=0,cx=0,cy=0;for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length],k=a.x*b.y-b.x*a.y;A+=k;cx+=(a.x+b.x)*k;cy+=(a.y+b.y)*k;}return A?{x:cx/(3*A),y:cy/(3*A)}:{x:pts[0].x,y:pts[0].y};}
+function smallLum(img){const c=document.createElement('canvas');c.width=512;c.height=256;const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(img,0,0,512,256);const d=g.getImageData(0,0,512,256).data,n=512*256,L=new Float32Array(n),R=new Float32Array(n),G=new Float32Array(n);
+  for(let i=0,j=0;i<n;i++,j+=4){const s=d[j]+d[j+1]+d[j+2]+1;L[i]=0.299*d[j]+0.587*d[j+1]+0.114*d[j+2];R[i]=d[j]/s;G[i]=d[j+1]/s;}c.width=c.height=1;return{L,R,G};}
+function pixAt(pose,X,Y,Z){const wx=X-pose.x,wz=Y-pose.y,wy=Z-tour.camH,ro=-Math.PI/2-rad(pose.yaw),lx=wx*Math.cos(ro)-wz*Math.sin(ro),lz=wx*Math.sin(ro)+wz*Math.cos(ro);
+  const u=((Math.atan2(lz,lx)/(2*Math.PI))%1+1)%1,v=Math.acos(clamp(wy/Math.hypot(wx,wy,wz),-1,1))/Math.PI;return Math.min(255,v*256|0)*512+Math.min(511,u*512|0);}
+// Signature d'une pièce vue d'une pose : couleur des murs le long du périmètre, à plusieurs hauteurs.
+// La luminance est comparée après retrait de sa moyenne locale (insensible à l'éclairage et à la distance).
+function wallSig(sig,pose,rows){const out={L:[],R:[],G:[]};for(const row of rows){const idx=row.map(p=>pixAt(pose,p[0],p[1],p[2])),l=idx.map(i=>sig.L[i]),n=l.length;
+    for(let i=0;i<n;i++){let m=0;for(let k=-4;k<=4;k++)m+=l[(i+k+n)%n];out.L.push(l[i]-m/9);out.R.push(sig.R[idx[i]]);out.G.push(sig.G[idx[i]]);}}return out;}
+const sigCorr=(a,b)=>(pearson(a.L,b.L)+pearson(a.R,b.R)+pearson(a.G,b.G))/3;
+function pearson(a,b){const n=a.length;let ma=0,mb=0;for(let i=0;i<n;i++){ma+=a[i];mb+=b[i];}ma/=n;mb/=n;let sab=0,sa=0,sb=0;for(let i=0;i<n;i++){const x=a[i]-ma,y=b[i]-mb;sab+=x*y;sa+=x*x;sb+=y*y;}return sa&&sb?sab/Math.sqrt(sa*sb):0;}
+// Cherche la pose (position, orientation) qui superpose la pièce vue d'une photo sur une pièce déjà connue.
+// Les murs de la vue (même partielle : pièce en L, angle masqué) doivent tomber sur les murs de la pièce.
+function wallsOf(P){const H=[],V=[];P.forEach((a,i)=>{const b=P[(i+1)%P.length],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy);if(l<0.05)return;
+  if(Math.abs(dx)>=Math.abs(dy))H.push({c:(a.y+b.y)/2,a:Math.min(a.x,b.x),b:Math.max(a.x,b.x),l});else V.push({c:(a.x+b.x)/2,a:Math.min(a.y,b.y),b:Math.max(a.y,b.y),l});});return{H,V};}
+function matchRoom(room,refSig,ref,Q,sigB){
+  if(area(Q)>area(room.pts)*1.25)return null;
+  const aR=axisAngle(room.pts),R0=rot2(room.pts,-aR),WR=wallsOf(R0),aQ=axisAngle(Q),cand=[];
+  const cover=(ws,rs,dc,da)=>{let s=0;for(const w of ws){let o=0;for(const r of rs)if(Math.abs(w.c+dc-r.c)<0.12)o+=Math.max(0,Math.min(w.b+da,r.b+0.1)-Math.max(w.a+da,r.a-0.1));s+=Math.min(o,w.l);}return s;};
+  for(let m=0;m<4;m++){const th=-aQ+m*Math.PI/2,WQ=wallsOf(rot2(Q,th)),tot=WQ.H.reduce((s,w)=>s+w.l,0)+WQ.V.reduce((s,w)=>s+w.l,0);let best=null;
+    for(const rv of WR.V)for(const qv of WQ.V){const tx=rv.c-qv.c;for(const rh of WR.H)for(const qh of WQ.H){const ty=rh.c-qh.c;if(!inPoly(R0,tx,ty))continue;
+      const sc=(cover(WQ.V,WR.V,tx,ty)+cover(WQ.H,WR.H,ty,tx))/tot;if(!best||sc>best.sc)best={sc,tx,ty};}}
+    if(best&&best.sc>=0.6){const w=rot2([{x:best.tx,y:best.ty}],aR)[0];cand.push({sc:best.sc,x:w.x,y:w.y,yaw:((deg(th+aR)%360)+540)%360-180});}}
+  if(!cand.length)return null;
+  const top=Math.max(...cand.map(c=>c.sc)),keep=cand.filter(c=>c.sc>=top-0.12),hs=[0.5,1.1,1.7,room.h>2.4?room.h-0.25:2.1],rows=hs.map(()=>[]);
+  room.pts.forEach((a,i)=>{const b=room.pts[(i+1)%room.pts.length],l=Math.hypot(b.x-a.x,b.y-a.y),n=Math.floor(l/0.25);for(let k=1;k<n;k++)hs.forEach((z,j)=>rows[j].push([a.x+(b.x-a.x)*k/n,a.y+(b.y-a.y)*k/n,z]));});
+  const va=wallSig(refSig,ref,rows);for(const c of keep){c.corr=sigCorr(va,wallSig(sigB,c,rows));c.val=c.corr+2*(c.sc-top);}
+  keep.sort((p,q)=>q.val-p.val);const c0=keep[0];if(c0.corr<0.2)return null;c0.doubt=keep.length>1&&c0.val-keep[1].val<0.08;c0.g=-(c0.sc+c0.corr);return c0;
+}
+let apBusy=false;
+async function autoPlace(quiet){
+  if(apBusy||demo||!canEdit)return;const todo=tour.panos.filter(p=>!p.placed);
+  if(!todo.length){if(!quiet)toast('Tous les points de vue sont déjà placés');return;}
+  apBusy=true;const sigs=new Map();let same=0,fresh=0,fail=0,doubt=0;
+  try{for(let i=0;i<todo.length;i++){const p=todo[i];status('Placement automatique '+(i+1)+'/'+todo.length+'…');await sleep(30);
+    let img,lay;try{img=await loadImg(await urlOf(p));lay=layoutFromImage(img,0);}catch(e){fail++;continue;}
+    const sigB=smallLum(img);img=null;let best=null;
+    for(const r of tour.rooms){const ref=tour.panos.find(q=>q.placed&&q!==p&&inPoly(r.pts,q.x,q.y));if(!ref)continue;
+      let sr=sigs.get(ref.id);if(!sr){try{sr=smallLum(await loadImg(await urlOf(ref)));sigs.set(ref.id,sr);}catch(e){continue;}}
+      const m=matchRoom(r,sr,ref,lay.pts,sigB);if(m&&(!best||m.g<best.g))best=m;}
+    if(best){p.x=+best.x.toFixed(3);p.y=+best.y.toFixed(3);p.yaw=Math.round(best.yaw*10)/10;same++;if(best.doubt)doubt++;}
+    else{const th=-axisAngle(lay.pts),P=rot2(lay.pts,th);let mx=1e9,my=1e9;P.forEach(q=>{mx=Math.min(mx,q.x);my=Math.min(my,q.y);});
+      let ox=0,oy=0;if(tour.rooms.length){ox=-1e9;oy=1e9;tour.rooms.forEach(r=>r.pts.forEach(q=>{ox=Math.max(ox,q.x);oy=Math.min(oy,q.y);}));ox+=1.5;}
+      const tx=ox-mx,ty=oy-my;p.x=+tx.toFixed(3);p.y=+ty.toFixed(3);p.yaw=Math.round((((deg(th)%360)+540)%360-180)*10)/10;
+      tour.rooms.push({id:uid(),name:'Pièce '+(tour.rooms.length+1),h:lay.h||0,pts:P.map(q=>({x:+(q.x+tx).toFixed(3),y:+(q.y+ty).toFixed(3)}))});fresh++;}
+    p.placed=true;sigs.set(p.id,sigB);}
+  }finally{apBusy=false;status('');}
+  if(S.cur){place(mA,S.cur);S.x=S.cur.x;S.y=S.cur.y;S.goal=null;}mB.visible=false;rebuildOverlay();saveNow();
+  if($('#sheet').classList.contains('open')){renderRooms();renderPhotos();}
+  const n=same+fresh;toast(n?n+' point'+(n>1?'s':'')+' placé'+(n>1?'s':'')+' · '+tour.rooms.length+' pièce'+(tour.rooms.length>1?'s':'')+(fail?' · '+fail+' photo'+(fail>1?'s':'')+' non reconnue'+(fail>1?'s':''):'')+(doubt?' · orientation à vérifier sur '+doubt:''):'Pièces non reconnues sur ces photos : placez les points à la main dans Plan');
+}
+function roomMembers(r){return tour.panos.filter(p=>inPoly(r.pts,p.x,p.y));}
+function rotateRoom(r){const c=centroid(r.pts),mem=roomMembers(r),f=q=>{const dx=q.x-c.x,dy=q.y-c.y;q.x=+(c.x-dy).toFixed(3);q.y=+(c.y+dx).toFixed(3);};
+  mem.forEach(p=>{f(p);p.yaw=((p.yaw+90+540)%360)-180;});r.pts.forEach(f);if(S.cur&&mem.includes(S.cur)){place(mA,S.cur);S.x=S.cur.x;S.y=S.cur.y;}rebuildOverlay();touch();}
+
 
 
 /* ---------- panneaux ---------- */
@@ -557,8 +622,8 @@ async function removePano(p){
 }
 function renderRooms(){const L=$('#rList');L.innerHTML=tour.rooms.length?'':'<p class="note">Aucune pièce relevée. Utilisez « Relevé » pour pointer les angles au sol.</p>';
   tour.rooms.forEach(r=>{const d=document.createElement('div');d.className='item';
-    d.innerHTML='<div class="g"><input type="text" value="'+esc(r.name)+'" '+(canEdit?'':'disabled')+'><small>'+fmt(area(r.pts))+' m² · périmètre '+fmt(perim(r.pts))+' m · '+r.pts.length+' murs</small></div><div style="width:84px"><label>HSP (m)</label><input type="number" step="0.01" value="'+(r.h||'')+'" '+(canEdit?'':'disabled')+'></div><button class="warn ed">Suppr.</button>';
-    const [nm,hh]=d.getElementsByTagName('input'),[del]=d.getElementsByTagName('button');
+    d.innerHTML='<div class="g"><input type="text" value="'+esc(r.name)+'" '+(canEdit?'':'disabled')+'><small>'+fmt(area(r.pts))+' m² · périmètre '+fmt(perim(r.pts))+' m · '+r.pts.length+' murs</small></div><div style="width:84px"><label>HSP (m)</label><input type="number" step="0.01" value="'+(r.h||'')+'" '+(canEdit?'':'disabled')+'></div><button class="ed">Pivoter</button><button class="warn ed">Suppr.</button>';
+    const [nm,hh]=d.getElementsByTagName('input'),[piv,del]=d.getElementsByTagName('button');piv.onclick=()=>rotateRoom(r);
     nm.onchange=()=>{r.name=nm.value.trim().slice(0,40)||'Pièce';touch();};
     hh.onchange=()=>{r.h=Math.max(0,+String(hh.value).replace(',','.')||0);rebuildOverlay();touch();};
     del.onclick=()=>{if(del.dataset.ok){tour.rooms=tour.rooms.filter(q=>q!==r);rebuildOverlay();touch();renderRooms();}else{del.dataset.ok=1;del.textContent='Confirmer';setTimeout(()=>{del.dataset.ok='';del.textContent='Suppr.';},3000);}};
@@ -588,7 +653,7 @@ async function importFiles(files){
       const p={id:uid(),name:f.name.replace(/\.[^.]+$/,'').slice(0,40)||'Point',asset,x:l?l.x+3:0,y:l?l.y:0,yaw:0,url:URL.createObjectURL(blob)};
       tour.panos.push(p);ok++;rebuildOverlay();hud();touch();if(!S.cur&&!S.pending)jumpTo(p);
     }catch(e){toast(f.name+' : '+(e&&e.message||'import impossible'));await new Promise(r=>setTimeout(r,1800));}}
-  status('');if(ok){toast(ok+' photo'+(ok>1?'s':'')+' importée'+(ok>1?'s':'')+(volatile?' (non conservées à la fermeture)':''));if($('#sheet').classList.contains('open'))renderPhotos();}
+  status('');if(ok){toast(ok+' photo'+(ok>1?'s':'')+' importée'+(ok>1?'s':'')+(volatile?' (non conservées à la fermeture)':''));if($('#sheet').classList.contains('open'))renderPhotos();autoPlace(true);}
   else if(!tour.panos.length)welcome(true);
 }
 $('#file').onchange=e=>{importFiles(e.target.files);e.target.value='';};
@@ -701,7 +766,7 @@ async function camImport(list){if(cam.busy)return 0;if(demo)leaveDemo();cam.busy
       const l=tour.panos[tour.panos.length-1];const p={id:uid(),name:f.name.replace(/\.[^.]+$/,'').slice(0,40),asset:'app:'+r.file,src:f.name,x:l?l.x+3:0,y:l?l.y:0,yaw:0};
       tour.panos.push(p);ok++;rebuildOverlay();hud();saveNow();if(!S.cur&&!S.pending)jumpTo(p);
     }catch(e){toast(f.name+' : '+e.message);await sleep(1800);}}
-  status('');cam.busy=false;renderCamList();renderCam();if(ok)toast(ok+' photo'+(ok>1?'s':'')+' ajoutée'+(ok>1?'s':'')+' à la visite');return ok;}
+  status('');cam.busy=false;renderCamList();renderCam();if(ok){toast(ok+' photo'+(ok>1?'s':'')+' ajoutée'+(ok>1?'s':'')+' à la visite');autoPlace(true);}return ok;}
 async function camShot(){if(cam.busy||!cam.ok)return;const delay=+$('#cDelay').value||0;$('#cShot').disabled=true;
   try{for(let s=delay;s>0;s--){status('Prise de vue dans '+s+' s…');await sleep(1000);}status('Prise de vue…');
     try{await exec('camera.setOptions',{options:{captureMode:'image'}});}catch(e){}
